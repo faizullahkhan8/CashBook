@@ -1,0 +1,67 @@
+================================================================================
+                        ZADA PHARMACY
+           CASHBOOK SYSTEM — REQUIREMENT DOCUMENT
+================================================================================
+
+Project Name  : Zada Pharmacy POS Cash Counter & Shift Closings Console
+Version       : 1.0.0
+Date          : ____________________
+
+--------------------------------------------------------------------------------
+                         SINGLE-LINE REQUIREMENT
+--------------------------------------------------------------------------------
+
+"We require a desktop-based POS Cash Counter application for Zada Pharmacy
+that records real-time Cash and Online payment transactions, manages shift
+openings with petty cash floats, performs physical cash denomination
+reconciliation at shift closing, detects shortages or surpluses, and
+generates printable audit slips — all stored locally in a secure SQLite
+database for permanent record keeping."
+
+--------------------------------------------------------------------------------
+                         SCOPE OF DELIVERY
+--------------------------------------------------------------------------------
+
+1. Real-time transaction entry (Cash & Online) with invoice tracking
+2. Shift opening with configurable petty cash float
+3. Physical cash denomination counter (Rs 5000 / 1000 / 500 / 100 / 50 / 20 / 10 / Coins)
+4. Automatic shortage/surplus variance detection
+5. Printable thermal/A4 audit closing slips
+6. Complete ledger history with search, filter, and export (CSV/Print)
+7. All closings archive with summary reports
+
+--------------------------------------------------------------------------------
+                         ACCEPTANCE & SIGNATURES
+--------------------------------------------------------------------------------
+
+By signing below, all parties confirm they have reviewed and accepted the
+above requirement in full.
+
+1. RECEIVED FROM (IT Team):
+
+   Name  : Hamayun Khan
+   Title : IT Developer
+   Sign  : ________________________    Date : ______________
+
+   Name  : Faiz Ullah Khan
+   Title : IT Developer
+   Sign  : ________________________    Date : ______________
+
+
+2. RECEIVED BY (Cashier):
+
+   Name  : ________________________
+   Title : Cashier
+   Sign  : ________________________    Date : ______________
+
+
+3. APPROVED BY (CEO):
+
+   Name  : ________________________
+   Title : CEO — Zada Pharmacy
+   Sign  : ________________________    Date : ______________
+
+
+================================================================================
+                          END OF DOCUMENT
+================================================================================

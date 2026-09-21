@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  getActiveShift: () => ipcRenderer.invoke('get-active-shift'),
+  updateOpeningFloat: (shiftId, amount) => ipcRenderer.invoke('update-opening-float', { shiftId, amount }),
+  updateShiftStaff: (data) => ipcRenderer.invoke('update-shift-staff', data),
+  getAllEmployees: () => ipcRenderer.invoke('get-all-employees'),
+  saveEmployee: (data) => ipcRenderer.invoke('save-employee', data),
+  deleteEmployee: (id) => ipcRenderer.invoke('delete-employee', id),
+  getNextInvoiceNumber: () => ipcRenderer.invoke('get-next-invoice'),
+  addLedgerEntry: (data) => ipcRenderer.invoke('add-ledger-entry', data),
+  updateLedgerEntry: (id, data) => ipcRenderer.invoke('update-ledger-entry', { id, data }),
+  deleteLedgerEntry: (id) => ipcRenderer.invoke('delete-ledger-entry', id),
+  getRecentEntries: (shiftId, limit) => ipcRenderer.invoke('get-recent-entries', { shiftId, limit }),
+  getAllLedgerEntries: (filters) => ipcRenderer.invoke('get-all-ledger-entries', filters),
+  getShiftSummary: (shiftId) => ipcRenderer.invoke('get-shift-summary', shiftId),
+  saveShiftClosing: (data) => ipcRenderer.invoke('save-shift-closing', data),
+  getAllClosings: (filters) => ipcRenderer.invoke('get-all-closings', filters),
+  getClosingById: (id) => ipcRenderer.invoke('get-closing-by-id', id),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  updateSettings: (settings) => ipcRenderer.invoke('update-settings', settings),
+  printSlip: () => ipcRenderer.invoke('print-slip'),
+  getBackups: () => ipcRenderer.invoke('get-backups'),
+  restoreBackup: (filename) => ipcRenderer.invoke('restore-backup', filename),
+  addShortItem: (data) => ipcRenderer.invoke('add-short-item', data),
+  returnShortItem: (id, data) => ipcRenderer.invoke('return-short-item', { id, data }),
+  getShortItems: (shiftId) => ipcRenderer.invoke('get-short-items', shiftId),
+});
