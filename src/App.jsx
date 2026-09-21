@@ -28,6 +28,7 @@ export default function App() {
     ledger: 'Ledger Entry',
     summary: 'Executive Summary',
     'short-items': 'Short Items Tracking',
+    'all-short-items': 'Short Items Master History',
     closing: 'Closing & Reconciliation',
     'all-closings': 'All Closings Archive',
     'all-ledgers': 'Master Ledger Records',
@@ -35,7 +36,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] font-sans text-slate-800 dark:text-slate-100 transition-colors">
       {/* Sidebar Navigation */}
       <Sidebar />
 
@@ -48,7 +49,8 @@ export default function App() {
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {currentView === 'ledger' && <LedgerEntryView initialTab="entry" />}
           {currentView === 'summary' && <SummaryView />}
-          {currentView === 'short-items' && <ShortItemsView />}
+          {currentView === 'short-items' && <ShortItemsView initialTab="entry" />}
+          {currentView === 'all-short-items' && <ShortItemsView initialTab="list" />}
           {currentView === 'closing' && <ClosingView initialTab="reconcile" />}
           {currentView === 'all-closings' && <ClosingView initialTab="archive" />}
           {currentView === 'all-ledgers' && <LedgerEntryView initialTab="archive" />}

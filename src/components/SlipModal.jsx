@@ -38,7 +38,7 @@ export default function SlipModal({ closing, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:absolute print:inset-0 print:bg-transparent print:backdrop-blur-none print:p-0 print:flex-col print:items-start">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print:shadow-none print:border-none print:max-h-none print:max-w-none print:w-[80mm] print:overflow-visible">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] print:shadow-none print:border-none print:max-h-none print:max-w-none print:w-[80mm] print:overflow-visible">
         {/* Modal Top Bar */}
         <div className="px-5 py-3.5 bg-slate-800 text-white flex items-center justify-between no-print">
           <div className="flex items-center space-x-2">
@@ -54,7 +54,7 @@ export default function SlipModal({ closing, onClose }) {
         </div>
 
         {/* Printable Slip Content */}
-        <div className="p-6 overflow-y-auto font-mono text-xs text-slate-800 space-y-4 print-receipt">
+        <div className="p-6 overflow-y-auto font-mono text-xs text-slate-800 dark:text-slate-200 space-y-4 print-receipt bg-white dark:bg-slate-900">
           {/* Header */}
           <div className="text-center pb-3 border-b border-dashed border-slate-300">
             <h3 className="font-bold text-base text-slate-900 tracking-tight font-sans">
@@ -210,11 +210,11 @@ export default function SlipModal({ closing, onClose }) {
         </div>
 
         {/* Modal Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end space-x-3 no-print">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3 no-print">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-xl transition-all"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all"
           >
             Close
           </button>

@@ -245,6 +245,12 @@ function seedInitialData() {
     ]);
   }
 
+  // Ensure theme exists for existing databases
+  const existingTheme = queryOne("SELECT value FROM settings WHERE key = 'theme'");
+  if (!existingTheme) {
+    db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'light')");
+  }
+
   // Seed default 4 employees if table is empty
   const empCount = queryOne("SELECT COUNT(*) as count FROM employees");
   if (!empCount || empCount.count === 0) {
@@ -505,9 +511,12 @@ function returnShortItem(id, data) {
 
 function getShortItems(shiftId) {
   if (!db) return [];
+  if (shiftId === 'ALL') {
+    return queryAll("SELECT s.*, sh.shift_type FROM short_items s LEFT JOIN shifts sh ON s.shift_id = sh.id ORDER BY s.id DESC");
+  }
   const active = ensureActiveShift();
   const targetShiftId = shiftId || (active ? active.id : 1);
-  return queryAll("SELECT * FROM short_items WHERE shift_id = ? ORDER BY id DESC", [targetShiftId]);
+  return queryAll("SELECT s.*, sh.shift_type FROM short_items s LEFT JOIN shifts sh ON s.shift_id = sh.id WHERE s.shift_id = ? ORDER BY s.id DESC", [targetShiftId]);
 }
 
 function getShiftSummary(shiftId) {

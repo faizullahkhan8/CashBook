@@ -10,11 +10,13 @@ import {
   Pill,
   Activity,
   Settings,
-  ShoppingCart
+  ShoppingCart,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { currentView, setCurrentView, allClosings, summary, activeShift, setIsStaffModalOpen } = useApp();
+  const { currentView, setCurrentView, allClosings, summary, activeShift, setIsStaffModalOpen, theme, toggleTheme } = useApp();
 
   const navItems = [
     {
@@ -63,15 +65,24 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-[#0a1226] text-slate-200 flex flex-col flex-shrink-0 border-r border-slate-800 select-none relative z-10 shadow-2xl">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800/80 flex items-center space-x-3.5 bg-white">
+      <div className="p-5 border-b border-slate-800/80 flex items-center space-x-3.5 bg-white dark:bg-slate-900/90">
         <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-          <img src="/logo.png" alt="Zada Logo" className="w-full h-full object-contain" />
+          <img
+            src="/logo.png"
+            alt="Zada Logo"
+            className={`w-full h-full object-contain ${theme === 'dark' ? 'hidden' : 'block'} dark:hidden`}
+          />
+          <img
+            src="/logo-dark.png"
+            alt="Zada Logo"
+            className={`w-full h-full object-contain ${theme === 'dark' ? 'block' : 'hidden'} hidden dark:block`}
+          />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-sm font-black tracking-widest text-[#27325b] uppercase truncate">
+          <h1 className="text-sm font-black tracking-widest text-[#27325b] dark:text-blue-100 uppercase truncate">
             Zada Pharmacy
           </h1>
-          <p className="text-[10px] font-bold text-[#27325b]/80 tracking-wider truncate uppercase mt-0.5">
+          <p className="text-[10px] font-bold text-[#27325b]/80 dark:text-slate-400 tracking-wider truncate uppercase mt-0.5">
             Cash Counter
           </p>
         </div>
@@ -88,7 +99,8 @@ export default function Sidebar() {
           const isActive =
             currentView === item.id ||
             (item.id === 'ledger' && currentView === 'all-ledgers') ||
-            (item.id === 'closing' && currentView === 'all-closings');
+            (item.id === 'closing' && currentView === 'all-closings') ||
+            (item.id === 'short-items' && currentView === 'all-short-items');
           return (
             <button
               key={item.id}
@@ -147,6 +159,26 @@ export default function Sidebar() {
             <span className={`text-[10px] px-2 py-1 rounded-md font-bold shadow-sm ${isNight ? 'bg-indigo-900/60 text-indigo-300 border border-indigo-800' : 'bg-amber-900/60 text-amber-300 border border-amber-800'
               }`}>
               {isNight ? '🌙 Night' : '☀️ Day'}
+            </span>
+          </button>
+
+          {/* Quick Theme Switcher Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-full mt-2 flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all duration-150 border border-slate-800/60 group cursor-pointer"
+            title="Toggle between Light and Dark mode"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 text-slate-400 group-hover:text-amber-300 transition-colors">
+                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+              </div>
+              <span className="text-xs font-bold text-slate-300">Theme</span>
+            </div>
+            <span className={`text-[10px] px-2 py-1 rounded-md font-bold shadow-sm uppercase ${
+              theme === 'dark' ? 'bg-indigo-900/60 text-indigo-300 border border-indigo-800' : 'bg-slate-800 text-slate-300'
+            }`}>
+              {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
             </span>
           </button>
         </div>

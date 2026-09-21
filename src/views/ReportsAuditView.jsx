@@ -31,9 +31,11 @@ export default function ReportsAuditView() {
     activeShift,
     switchShift,
     saveStaffSetup,
+    theme,
+    setTheme,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState('shift-roster'); // 'shift-roster' | 'short-staff' | 'backups'
+  const [activeTab, setActiveTab] = useState('shift-roster'); // 'shift-roster' | 'short-staff' | 'backups' | 'theme'
   const [backups, setBackups] = useState([]);
 
   // Shift Staff Roster State
@@ -296,6 +298,31 @@ export default function ReportsAuditView() {
             }`}
           >
             {backups.length}
+          </span>
+        </button>
+
+        {/* Tab 4: Appearance & Theme */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('theme')}
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'theme'
+              ? 'bg-[#27325b] text-white shadow-md shadow-[#27325b]/20'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          {theme === 'dark' ? (
+            <Moon className="w-4 h-4 text-indigo-400" />
+          ) : (
+            <Sun className="w-4 h-4 text-amber-500" />
+          )}
+          <span>Appearance & Theme</span>
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+              activeTab === 'theme' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {theme === 'dark' ? 'Dark' : 'Light'}
           </span>
         </button>
       </div>
@@ -731,6 +758,197 @@ export default function ReportsAuditView() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: APPEARANCE & THEME SETTINGS */}
+      {activeTab === 'theme' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#27325b] to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                  {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-300" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 tracking-tight">
+                    Display Appearance & Color Theme
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Choose your preferred visual theme for the CashBook interface. Your selection is permanently saved to system settings.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Selector Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Light Theme Card */}
+              <div
+                onClick={() => setTheme('light')}
+                className={`relative group cursor-pointer rounded-2xl p-5 border-2 transition-all duration-200 ${
+                  theme !== 'dark'
+                    ? 'border-[#27325b] bg-indigo-50/30 shadow-md ring-4 ring-[#27325b]/10'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 shadow-sm'
+                }`}
+              >
+                {/* Active Indicator Badge */}
+                {theme !== 'dark' && (
+                  <div className="absolute top-4 right-4 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-[#27325b] text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                    <span>Active Theme</span>
+                  </div>
+                )}
+
+                {/* Preview Mockup */}
+                <div className="w-full h-28 rounded-xl bg-slate-100 border border-slate-200 p-2.5 mb-4 flex flex-col justify-between overflow-hidden shadow-inner">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div className="flex items-center space-x-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    </div>
+                    <div className="h-2 w-16 bg-slate-300 rounded-full" />
+                  </div>
+                  <div className="flex gap-2 flex-1 pt-2">
+                    <div className="w-1/4 bg-[#27325b] rounded-lg p-1 flex flex-col gap-1">
+                      <div className="h-1.5 bg-white/40 rounded" />
+                      <div className="h-1.5 bg-white/20 rounded" />
+                    </div>
+                    <div className="flex-1 bg-white rounded-lg border border-slate-200 p-1.5 flex flex-col justify-between shadow-xs">
+                      <div className="h-2 bg-slate-200 rounded w-3/4" />
+                      <div className="flex gap-1">
+                        <div className="h-3 flex-1 bg-emerald-100 rounded" />
+                        <div className="h-3 flex-1 bg-indigo-100 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 rounded-xl bg-amber-100 text-amber-700 mt-0.5">
+                    <Sun className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-black text-slate-800 flex items-center space-x-2">
+                      <span>Light Theme</span>
+                      <span className="text-[10px] text-amber-600 font-bold px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200">Day Clean</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Clean white surfaces with high-contrast slate text and deep navy accents. Recommended for daytime office hours and bright environments.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400">Appearance Mode</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTheme('light');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                      theme !== 'dark'
+                        ? 'bg-[#27325b] text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {theme !== 'dark' ? 'Selected' : 'Use Light Mode'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Dark Theme Card */}
+              <div
+                onClick={() => setTheme('dark')}
+                className={`relative group cursor-pointer rounded-2xl p-5 border-2 transition-all duration-200 ${
+                  theme === 'dark'
+                    ? 'border-indigo-500 bg-indigo-950/20 shadow-md ring-4 ring-indigo-500/10'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 shadow-sm'
+                }`}
+              >
+                {/* Active Indicator Badge */}
+                {theme === 'dark' && (
+                  <div className="absolute top-4 right-4 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                    <span>Active Theme</span>
+                  </div>
+                )}
+
+                {/* Preview Mockup */}
+                <div className="w-full h-28 rounded-xl bg-slate-900 border border-slate-800 p-2.5 mb-4 flex flex-col justify-between overflow-hidden shadow-inner">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center space-x-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                    </div>
+                    <div className="h-2 w-16 bg-slate-700 rounded-full" />
+                  </div>
+                  <div className="flex gap-2 flex-1 pt-2">
+                    <div className="w-1/4 bg-slate-800 border border-slate-700 rounded-lg p-1 flex flex-col gap-1">
+                      <div className="h-1.5 bg-indigo-400/50 rounded" />
+                      <div className="h-1.5 bg-slate-600 rounded" />
+                    </div>
+                    <div className="flex-1 bg-slate-800 border border-slate-700 rounded-lg p-1.5 flex flex-col justify-between">
+                      <div className="h-2 bg-slate-600 rounded w-3/4" />
+                      <div className="flex gap-1">
+                        <div className="h-3 flex-1 bg-emerald-950/80 border border-emerald-800/50 rounded" />
+                        <div className="h-3 flex-1 bg-indigo-950/80 border border-indigo-800/50 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 rounded-xl bg-indigo-900/30 text-indigo-400 mt-0.5 border border-indigo-800/40">
+                    <Moon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-black text-slate-800 flex items-center space-x-2">
+                      <span>Dark Theme</span>
+                      <span className="text-[10px] text-indigo-400 font-bold px-1.5 py-0.5 bg-indigo-950/50 rounded border border-indigo-800/60">Night Sleek</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Sleek slate and charcoal surfaces designed to reduce glare and visual fatigue during late evening and night shifts.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400">Appearance Mode</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTheme('dark');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                      theme === 'dark'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {theme === 'dark' ? 'Selected' : 'Use Dark Mode'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Info Callout */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start space-x-3">
+              <Sparkles className="w-4 h-4 text-[#27325b] mt-0.5 shrink-0" />
+              <div className="text-xs text-slate-600 space-y-1">
+                <p className="font-bold text-slate-800">
+                  Persistent Configuration Across Restarts & Views
+                </p>
+                <p className="text-slate-500 leading-relaxed">
+                  Your theme setting is stored securely in SQLite <code className="px-1.5 py-0.5 rounded bg-slate-200/60 text-slate-800 text-[10px] font-mono">settings.theme</code>. You can also quickly toggle between light and dark modes at any moment using the Sun/Moon icon in the top header bar.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

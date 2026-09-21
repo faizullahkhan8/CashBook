@@ -92,20 +92,20 @@ export default function ShiftStaffModal({ isOpen, onClose }) {
                 onClick={() => handleShiftSwitch('Day')}
                 className={`p-4 rounded-2xl border-2 flex flex-col items-start transition-all relative overflow-hidden text-left ${
                   !isNight
-                    ? 'border-amber-400 bg-amber-50/70 text-amber-950 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/20'
-                    : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm'
+                    ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 shadow-md shadow-amber-500/10 ring-2 ring-amber-400/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm'
                 }`}
               >
                 {!isNight && <div className="absolute top-0 right-0 w-16 h-16 bg-amber-400/10 rounded-bl-full blur-xl"></div>}
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                  !isNight ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
+                  !isNight ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-300'
                 }`}>
                   <Sun className="w-5 h-5" />
                 </div>
                 <div className="font-black text-sm">Day Shift</div>
                 <div className="text-[11px] font-semibold mt-1">
                   {!isNight ? (
-                    <span className="text-amber-700 flex items-center space-x-1 font-bold">
+                    <span className="text-amber-700 dark:text-amber-300 flex items-center space-x-1 font-bold">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-pulse"></span>
                       <span>Active Now</span>
                     </span>
@@ -120,20 +120,20 @@ export default function ShiftStaffModal({ isOpen, onClose }) {
                 onClick={() => handleShiftSwitch('Night')}
                 className={`p-4 rounded-2xl border-2 flex flex-col items-start transition-all relative overflow-hidden text-left ${
                   isNight
-                    ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 shadow-md shadow-indigo-500/10 ring-2 ring-indigo-500/20'
-                    : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm'
+                    ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 shadow-md shadow-indigo-500/10 ring-2 ring-indigo-500/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm'
                 }`}
               >
                 {isNight && <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-bl-full blur-xl"></div>}
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                  isNight ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
+                  isNight ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-300'
                 }`}>
                   <Moon className="w-5 h-5" />
                 </div>
                 <div className="font-black text-sm">Night Shift</div>
                 <div className="text-[11px] font-semibold mt-1">
                   {isNight ? (
-                    <span className="text-indigo-700 flex items-center space-x-1 font-bold">
+                    <span className="text-indigo-600 dark:text-indigo-300 flex items-center space-x-1 font-bold">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block animate-pulse"></span>
                       <span>Active Now</span>
                     </span>

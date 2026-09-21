@@ -32,6 +32,7 @@ export function AppProvider({ children }) {
     day_employee_2: 'Usman Tariq',
     night_employee_1: 'Hamza Khan',
     night_employee_2: 'Bilal Ahmed',
+    theme: 'light',
   });
   const [selectedClosingForSlip, setSelectedClosingForSlip] = useState(null);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
@@ -170,6 +171,31 @@ export function AppProvider({ children }) {
     }
   };
 
+  const theme = settings?.theme || 'light';
+
+  useEffect(() => {
+    const activeTheme = settings?.theme || 'light';
+    if (activeTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.style.colorScheme = 'light';
+    }
+  }, [settings?.theme]);
+
+  const toggleTheme = async () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    await updateSettings({ theme: nextTheme });
+    showToast(`Switched to ${nextTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+  };
+
+  const setTheme = async (newTheme) => {
+    if (newTheme !== 'light' && newTheme !== 'dark') return;
+    await updateSettings({ theme: newTheme });
+    showToast(`Switched to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+  };
+
   const addLedgerEntry = async ({ invoice_number, customer_type, amount, payment_method, notes, shift_type, employee_1, employee_2 }) => {
     try {
       const currentShiftType = shift_type || activeShift?.shift_type || 'Day';
@@ -294,6 +320,9 @@ export function AppProvider({ children }) {
         updateShiftStaff,
         saveStaffSetup,
         updateSettings,
+        theme,
+        toggleTheme,
+        setTheme,
         addLedgerEntry,
         deleteLedgerEntry,
         updateFloat,

@@ -14,6 +14,10 @@ function getBrowserStore() {
         store.settings.short_items_staff = JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)']);
         saveBrowserStore(store);
       }
+      if (store.settings && !store.settings.theme) {
+        store.settings.theme = 'light';
+        saveBrowserStore(store);
+      }
       return store;
     } catch {
       // fallback
@@ -30,6 +34,7 @@ function getBrowserStore() {
       night_employee_1: 'Hamza Khan',
       night_employee_2: 'Bilal Ahmed',
       short_items_staff: JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)']),
+      theme: 'light',
     },
     employees: [
       { id: 1, name: 'Muhammad Ali', assigned_shift: 'Day', role: 'Senior Cashier' },
@@ -490,6 +495,10 @@ export const api = {
     const store = getBrowserStore();
     if (!store.short_items) return [];
     
+    if (shiftId === 'ALL') {
+      return [...store.short_items].sort((a, b) => b.id - a.id);
+    }
+
     const active = store.shifts.find((s) => s.status === 'OPEN') || store.shifts[0];
     const targetShiftId = shiftId || (active ? active.id : 1);
     

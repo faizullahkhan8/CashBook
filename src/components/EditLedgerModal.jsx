@@ -26,20 +26,20 @@ export default function EditLedgerModal({ entry, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col scale-100">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col scale-100 border border-slate-200 dark:border-slate-800">
         
-        <div className="px-6 py-4 bg-white flex items-center justify-between border-b border-slate-100 relative">
+        <div className="px-6 py-4 bg-white dark:bg-slate-900 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 relative">
           <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <FileEdit className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-black text-slate-800">Edit Transaction</h3>
+              <h3 className="font-black text-slate-800 dark:text-slate-100">Edit Transaction</h3>
               <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest">{entry.invoice_number}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
