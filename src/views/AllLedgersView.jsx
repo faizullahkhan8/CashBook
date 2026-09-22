@@ -19,7 +19,7 @@ import ReceiptModal from '../components/ReceiptModal';
 import EditLedgerModal from '../components/EditLedgerModal';
 
 export default function AllLedgersView({ onSwitchToEntry }) {
-  const { settings, deleteLedgerEntry, recentEntries, setCurrentView } = useApp();
+  const { settings, deleteLedgerEntry, recentEntries, setCurrentView, refreshData } = useApp();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -170,7 +170,7 @@ export default function AllLedgersView({ onSwitchToEntry }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-slate-400 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recorded Transactions</span>
-          <div className="text-3xl font-black text-slate-800 font-mono my-2">{totalEntries}</div>
+          <div className="text-2xl lg:text-3xl font-black text-slate-800 font-mono my-2">{totalEntries}</div>
           <span className="text-xs font-semibold text-slate-400">Filtered receipts</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
@@ -178,7 +178,7 @@ export default function AllLedgersView({ onSwitchToEntry }) {
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Cash Intake</span>
             <Banknote className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-3xl font-black text-emerald-800 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-emerald-800 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Physical drawer cash</span>
@@ -188,14 +188,14 @@ export default function AllLedgersView({ onSwitchToEntry }) {
             <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Online Intake</span>
             <CreditCard className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="text-3xl font-black text-indigo-800 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-indigo-800 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalOnline.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Digital / Bank transfers</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-slate-800 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Total Revenue</span>
-          <div className="text-3xl font-black text-slate-900 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-slate-900 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Aggregated payments</span>
@@ -416,7 +416,7 @@ export default function AllLedgersView({ onSwitchToEntry }) {
         <EditLedgerModal 
           entry={editEntry} 
           onClose={() => setEditEntry(null)} 
-          onSave={() => { setEditEntry(null); loadLedgers(); }} 
+          onSave={() => { setEditEntry(null); loadLedgers(); refreshData(); }}
         />
       )}
     </div>

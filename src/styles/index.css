@@ -261,4 +261,23 @@ body {
     font-size: 11px !important;
     line-height: 1.25 !important;
   }
+
+  body.print-thermal .print-document-shell,
+  body.print-thermal .print-receipt {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+
+  body.print-a4 .print-document-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  body.print-a4 .print-receipt {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 10mm !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
 }

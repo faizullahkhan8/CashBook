@@ -14,12 +14,29 @@ export default function SlipModal({ closing, onClose }) {
     denominations = {};
   }
 
-  const handlePrint = () => {
+  const handlePrint = (format) => {
+    const body = document.body;
+    const style = document.createElement('style');
+    style.id = 'closing-print-page-size';
+    style.textContent = format === 'thermal'
+      ? '@page { size: 80mm auto; margin: 0; }'
+      : '@page { size: A4 portrait; margin: 12mm; }';
+    document.getElementById(style.id)?.remove();
+    document.head.appendChild(style);
+    body.classList.remove('print-thermal', 'print-a4');
+    body.classList.add(format === 'thermal' ? 'print-thermal' : 'print-a4');
+
+    const cleanup = () => {
+      body.classList.remove('print-thermal', 'print-a4');
+      document.getElementById(style.id)?.remove();
+    };
+    window.addEventListener('afterprint', cleanup, { once: true });
     api.printSlip();
   };
 
   const isBalanced = Math.abs(closing.variance || 0) < 0.01;
   const isShortage = (closing.variance || 0) < -0.01;
+  const isVoid = Number(closing.is_void) === 1;
   const isNight = closing.shift_type === 'Night';
   const staffDisplay = closing.employee_1 && closing.employee_2
     ? `${closing.employee_1} & ${closing.employee_2}`
@@ -38,7 +55,7 @@ export default function SlipModal({ closing, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:absolute print:inset-0 print:bg-transparent print:backdrop-blur-none print:p-0 print:flex-col print:items-start">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] print:shadow-none print:border-none print:max-h-none print:max-w-none print:w-[80mm] print:overflow-visible">
+      <div className="print-document-shell bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] print:shadow-none print:border-none print:max-h-none print:max-w-none print:overflow-visible">
         {/* Modal Top Bar */}
         <div className="px-5 py-3.5 bg-slate-800 text-white flex items-center justify-between no-print">
           <div className="flex items-center space-x-2">
@@ -55,6 +72,12 @@ export default function SlipModal({ closing, onClose }) {
 
         {/* Printable Slip Content */}
         <div className="p-6 overflow-y-auto font-mono text-xs text-slate-800 dark:text-slate-200 space-y-4 print-receipt bg-white dark:bg-slate-900">
+          {Number(closing.is_void) === 1 && (
+            <div className="rounded-lg border-2 border-rose-500 bg-rose-50 p-3 text-center text-rose-700 font-sans">
+              <div className="font-black text-lg tracking-widest">VOID</div>
+              <div className="text-xs font-semibold mt-1">Reason: {closing.void_reason || 'Not provided'}</div>
+            </div>
+          )}
           {/* Header */}
           <div className="text-center pb-3 border-b border-dashed border-slate-300">
             <h3 className="font-bold text-base text-slate-900 tracking-tight font-sans">
@@ -89,8 +112,8 @@ export default function SlipModal({ closing, onClose }) {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Till Status:</span>
-              <span className={`font-bold ${isBalanced ? 'text-emerald-700' : isShortage ? 'text-rose-600' : 'text-amber-600'}`}>
-                {closing.status || (isBalanced ? 'Balanced' : 'Variance')}
+              <span className={`font-bold ${isVoid ? 'text-slate-600' : isBalanced ? 'text-emerald-700' : isShortage ? 'text-rose-600' : 'text-amber-600'}`}>
+                {isVoid ? 'VOID' : closing.status || (isBalanced ? 'Balanced' : 'Variance')}
               </span>
             </div>
           </div>
@@ -210,7 +233,7 @@ export default function SlipModal({ closing, onClose }) {
         </div>
 
         {/* Modal Actions */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3 no-print">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2 no-print">
           <button
             type="button"
             onClick={onClose}
@@ -220,11 +243,19 @@ export default function SlipModal({ closing, onClose }) {
           </button>
           <button
             type="button"
-            onClick={handlePrint}
+            onClick={() => handlePrint('thermal')}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
           >
             <Printer className="w-4 h-4" />
-            <span>Print Slip</span>
+            <span>Thermal Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePrint('a4')}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>A4 Page Print</span>
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
+import EditShortItemModal from '../components/EditShortItemModal';
+import ReturnShortItemModal from '../components/ReturnShortItemModal';
 import {
   ShoppingCart,
   CheckCircle,
@@ -12,7 +14,9 @@ import {
   Plus,
   ArrowRight,
   Receipt,
-  FileText
+  FileText,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 export default function ShortItemsTerminal({ onSwitchToList }) {
@@ -38,12 +42,25 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
     return ['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)'];
   }, [settings?.short_items_staff]);
 
+  const pharmacyList = useMemo(() => {
+    const raw = settings?.short_item_pharmacies;
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return String(raw).split(',').map((value) => value.trim()).filter(Boolean);
+    }
+  }, [settings?.short_item_pharmacies]);
+
   const [amountStr, setAmountStr] = useState('');
   const [givenTo, setGivenTo] = useState('');
   const [notes, setNotes] = useState('');
   const inputRef = useRef(null);
 
-  const [returnModal, setReturnModal] = useState({ open: false, item: null, returnedAmount: '' });
+  const emptyReturnModal = { open: false, item: null, billAmount: '', referenceNo: '', pharmacy: '' };
+  const [returnModal, setReturnModal] = useState(emptyReturnModal);
+  const [editItem, setEditItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -113,17 +130,51 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
     setIsSubmitting(true);
     try {
       const res = await api.returnShortItem(returnModal.item.id, {
-        returned_amount: returnModal.returnedAmount
+        bill_amount: returnModal.billAmount,
+        reference_no: returnModal.referenceNo,
+        pharmacy: returnModal.pharmacy,
       });
       if (res) {
         showToast('Short item returned successfully', 'success');
-        setReturnModal({ open: false, item: null, returnedAmount: '' });
+        setReturnModal(emptyReturnModal);
         await refreshShortItems();
       }
     } catch (err) {
       showToast(err.message || 'Error returning short item', 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditSubmit = async (data) => {
+    if (!editItem) return;
+    setIsSubmitting(true);
+    try {
+      await api.updateShortItem(editItem.id, data);
+      showToast('Short item updated successfully', 'success');
+      setEditItem(null);
+      await refreshShortItems();
+      requestAnimationFrame(() => inputRef.current?.focus());
+    } catch (err) {
+      showToast(err.message || 'Error updating short item', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (item) => {
+    if (!window.confirm(`Delete short item of ${settings.currency} ${Number(item.amount).toLocaleString()} given to ${item.given_to}?`)) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    try {
+      await api.deleteShortItem(item.id);
+      showToast('Short item deleted successfully', 'info');
+      await refreshShortItems();
+    } catch (err) {
+      showToast(err.message || 'Error deleting short item', 'error');
+    } finally {
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   };
 
@@ -350,23 +401,32 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
                     </div>
 
                     <div className="flex flex-col items-end space-y-1.5 flex-shrink-0">
-                      <span className="font-mono text-sm font-black text-slate-900 dark:text-slate-100">
+                      <span className="font-mono text-sm font-black text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {settings.currency} {Number(item.amount).toLocaleString()}
                       </span>
-                      {isPending ? (
+                      {!isPending && (
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                          Spent: {settings.currency} {Number(item.spent_amount).toLocaleString()}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                      {isPending && (
                         <button
                           type="button"
-                          onClick={() => setReturnModal({ open: true, item, returnedAmount: '' })}
+                          onClick={() => setReturnModal({ ...emptyReturnModal, open: true, item, pharmacy: pharmacyList[0] || '' })}
                           className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1 shadow-sm active:scale-95"
                         >
                           <ArrowLeftRight className="w-3 h-3" />
                           <span>Return</span>
                         </button>
-                      ) : (
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Spent: {settings.currency} {Number(item.spent_amount).toLocaleString()}
-                        </div>
                       )}
+                        <button type="button" onClick={() => setEditItem(item)} className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50" title="Edit short item">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => handleDelete(item)} className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50" title="Delete short item">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -377,7 +437,7 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
       </div>
 
       {/* Return Modal */}
-      {returnModal.open && returnModal.item && (
+      {false && returnModal.open && returnModal.item && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800 animate-scale-up">
             <div className="bg-[#27325b] px-6 py-5 border-b border-[#27325b] flex justify-between items-center">
@@ -440,6 +500,28 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
           </div>
         </div>
       )}
+
+      <ReturnShortItemModal
+        state={returnModal}
+        setState={setReturnModal}
+        currency={settings.currency}
+        pharmacyOptions={pharmacyList}
+        submitting={isSubmitting}
+        onClose={() => setReturnModal(emptyReturnModal)}
+        onSubmit={handleReturnSubmit}
+      />
+
+      <EditShortItemModal
+        item={editItem}
+        currency={settings.currency}
+        staffOptions={shortItemStaffList}
+        saving={isSubmitting}
+        onClose={() => {
+          setEditItem(null);
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+        onSave={handleEditSubmit}
+      />
     </div>
   );
 }

@@ -1,11 +1,27 @@
 import React from 'react';
-import { Printer, X } from 'lucide-react';
+import { FileText, Printer, X } from 'lucide-react';
 import { api } from '../api';
 
 export default function ReceiptModal({ entry, settings, onClose }) {
   if (!entry) return null;
   
-  const handlePrint = () => {
+  const handlePrint = (format) => {
+    const body = document.body;
+    const style = document.createElement('style');
+    style.id = 'ledger-receipt-print-page-size';
+    style.textContent = format === 'thermal'
+      ? '@page { size: 80mm auto; margin: 0; }'
+      : '@page { size: A4 portrait; margin: 12mm; }';
+    document.getElementById(style.id)?.remove();
+    document.head.appendChild(style);
+    body.classList.remove('print-thermal', 'print-a4');
+    body.classList.add(format === 'thermal' ? 'print-thermal' : 'print-a4');
+
+    const cleanup = () => {
+      body.classList.remove('print-thermal', 'print-a4');
+      document.getElementById(style.id)?.remove();
+    };
+    window.addEventListener('afterprint', cleanup, { once: true });
     setTimeout(() => window.print(), 100);
   };
   
@@ -13,7 +29,7 @@ export default function ReceiptModal({ entry, settings, onClose }) {
   
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:absolute print:inset-0 print:bg-transparent print:backdrop-blur-none print:p-0 print:flex-col print:items-start animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-xs w-full border border-slate-200 overflow-hidden flex flex-col print:shadow-none print:border-none print:w-[80mm] print:overflow-visible scale-100">
+      <div className="print-document-shell bg-white rounded-2xl shadow-2xl max-w-xs w-full border border-slate-200 overflow-hidden flex flex-col print:shadow-none print:border-none print:overflow-visible scale-100">
         
         <div className="px-4 py-3 bg-slate-800 text-white flex items-center justify-between no-print">
           <span className="font-semibold text-sm">Receipt Viewer</span>
@@ -68,13 +84,17 @@ export default function ReceiptModal({ entry, settings, onClose }) {
           </div>
         </div>
         
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end space-x-3 no-print">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2 no-print">
           <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">
             Close
           </button>
-          <button onClick={handlePrint} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow-sm active:scale-95 transition-all">
+          <button onClick={() => handlePrint('thermal')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow-sm active:scale-95 transition-all">
             <Printer className="w-4 h-4" />
-            <span>Print Receipt</span>
+            <span>Thermal</span>
+          </button>
+          <button onClick={() => handlePrint('a4')} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center space-x-2 shadow-sm active:scale-95 transition-all">
+            <FileText className="w-4 h-4" />
+            <span>A4</span>
           </button>
         </div>
       </div>

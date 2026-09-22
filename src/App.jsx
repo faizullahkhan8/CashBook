@@ -9,6 +9,7 @@ import AllClosingsView from './views/AllClosingsView';
 import AllLedgersView from './views/AllLedgersView';
 import ShortItemsView from './views/ShortItemsView';
 import ReportsAuditView from './views/ReportsAuditView';
+import ClosingDetailsView from './views/ClosingDetailsView';
 import SlipModal from './components/SlipModal';
 import ShiftStaffModal from './components/ShiftStaffModal';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
@@ -31,6 +32,7 @@ export default function App() {
     'all-short-items': 'Short Items Master History',
     closing: 'Closing & Reconciliation',
     'all-closings': 'All Closings Archive',
+    'closing-details': 'Closing Details',
     'all-ledgers': 'Master Ledger Records',
     settings: 'Settings & Backups',
   };
@@ -53,6 +55,7 @@ export default function App() {
           {currentView === 'all-short-items' && <ShortItemsView initialTab="list" />}
           {currentView === 'closing' && <ClosingView initialTab="reconcile" />}
           {currentView === 'all-closings' && <ClosingView initialTab="archive" />}
+          {currentView === 'closing-details' && <ClosingDetailsView />}
           {currentView === 'all-ledgers' && <LedgerEntryView initialTab="archive" />}
           {currentView === 'settings' && <ReportsAuditView />}
         </main>

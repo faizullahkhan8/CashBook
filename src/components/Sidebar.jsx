@@ -12,7 +12,8 @@ import {
   Settings,
   ShoppingCart,
   Sun,
-  Moon
+  Moon,
+  Code2
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -65,7 +66,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-[#0a1226] text-slate-200 flex flex-col flex-shrink-0 border-r border-slate-800 select-none relative z-10 shadow-2xl">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800/80 flex items-center space-x-3.5 bg-white dark:bg-slate-900/90">
+      <div className="p-5 border-b border-slate-700/80 flex items-center space-x-3.5 bg-gradient-to-r from-[#172044] to-[#27325b] shadow-lg shadow-black/10">
         <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
           <img
             src="/logo.png"
@@ -79,10 +80,10 @@ export default function Sidebar() {
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-sm font-black tracking-widest text-[#27325b] dark:text-blue-100 uppercase truncate">
+          <h1 className="text-sm font-black tracking-widest text-white uppercase truncate">
             Zada Pharmacy
           </h1>
-          <p className="text-[10px] font-bold text-[#27325b]/80 dark:text-slate-400 tracking-wider truncate uppercase mt-0.5">
+          <p className="text-[10px] font-bold text-blue-200/90 tracking-wider truncate uppercase mt-0.5">
             Cash Counter
           </p>
         </div>
@@ -99,7 +100,7 @@ export default function Sidebar() {
           const isActive =
             currentView === item.id ||
             (item.id === 'ledger' && currentView === 'all-ledgers') ||
-            (item.id === 'closing' && currentView === 'all-closings') ||
+            (item.id === 'closing' && (currentView === 'all-closings' || currentView === 'closing-details')) ||
             (item.id === 'short-items' && currentView === 'all-short-items');
           return (
             <button
@@ -162,7 +163,7 @@ export default function Sidebar() {
             </span>
           </button>
 
-          {/* Quick Theme Switcher Button */}
+          {/* Quick Theme Switcher Button
           <button
             type="button"
             onClick={toggleTheme}
@@ -180,7 +181,7 @@ export default function Sidebar() {
             }`}>
               {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
             </span>
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -215,6 +216,23 @@ export default function Sidebar() {
             <span className="font-bold text-slate-300 max-w-[100px] truncate" title={staffDisplay}>
               {staffDisplay}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Developer Credits Card */}
+      <div className="mx-4 mb-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800/80 select-none">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
+            <Code2 className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+              Developed by Zada IT
+            </div>
+            <div className="text-[11px] font-bold text-slate-200 truncate" title="Humayun Khan & Faizullah">
+              Humayun Khan & Faizullah
+            </div>
           </div>
         </div>
       </div>

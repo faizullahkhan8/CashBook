@@ -18,6 +18,10 @@ function getBrowserStore() {
         store.settings.theme = 'light';
         saveBrowserStore(store);
       }
+      if (store.settings && !store.settings.short_item_pharmacies) {
+        store.settings.short_item_pharmacies = JSON.stringify(['Local Pharmacy', 'Medicine Market']);
+        saveBrowserStore(store);
+      }
       return store;
     } catch {
       // fallback
@@ -34,6 +38,7 @@ function getBrowserStore() {
       night_employee_1: 'Hamza Khan',
       night_employee_2: 'Bilal Ahmed',
       short_items_staff: JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)']),
+      short_item_pharmacies: JSON.stringify(['Local Pharmacy', 'Medicine Market']),
       theme: 'light',
     },
     employees: [
@@ -68,6 +73,26 @@ function getBrowserStore() {
 
 function saveBrowserStore(store) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
+function recalculateBrowserClosing(store, shiftId) {
+  const closing = (store.shift_closings || []).find((c) => c.shift_id === shiftId && !c.is_void);
+  const shift = (store.shifts || []).find((s) => s.id === shiftId);
+  if (!closing || !shift) return closing;
+  const entries = (store.ledger_entries || []).filter((entry) => entry.shift_id === shiftId);
+  const items = (store.short_items || []).filter((item) => item.shift_id === shiftId);
+  const cash = entries.filter((entry) => entry.payment_method === 'CASH').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const online = entries.filter((entry) => entry.payment_method === 'ONLINE').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const shortDeduction = items.reduce((sum, item) => sum + (item.status === 'PENDING' ? Number(item.amount || 0) : Number(item.spent_amount || 0)), 0);
+  closing.opening_float = Number(shift.opening_float || 0);
+  closing.cash_sales = cash;
+  closing.online_sales = online;
+  closing.total_revenue = cash + online;
+  closing.expected_drawer_cash = closing.opening_float + cash - shortDeduction;
+  closing.variance = Number(closing.counted_cash || 0) - closing.expected_drawer_cash;
+  closing.status = Math.abs(closing.variance) < 0.01 ? 'Balanced' : closing.variance < 0 ? 'Shortage' : 'Overage';
+  closing.updated_at = new Date().toISOString();
+  return closing;
 }
 
 export const api = {
@@ -221,6 +246,7 @@ export const api = {
       if (data.payment_method) entry.payment_method = data.payment_method;
       if (data.notes !== undefined) entry.notes = data.notes;
       if (data.amount !== undefined) entry.amount = parseFloat(data.amount) || 0;
+      recalculateBrowserClosing(store, entry.shift_id);
       saveBrowserStore(store);
     }
     return entry;
@@ -229,7 +255,9 @@ export const api = {
   async deleteLedgerEntry(id) {
     if (isElectron) return window.electronAPI.deleteLedgerEntry(id);
     const store = getBrowserStore();
+    const entry = store.ledger_entries.find((e) => e.id === id);
     store.ledger_entries = store.ledger_entries.filter((e) => e.id !== id);
+    if (entry) recalculateBrowserClosing(store, entry.shift_id);
     saveBrowserStore(store);
     return { success: true, deletedId: id };
   },
@@ -248,6 +276,10 @@ export const api = {
     if (isElectron) return window.electronAPI.getAllLedgerEntries(filters);
     const store = getBrowserStore();
     let list = [...(store.ledger_entries || [])];
+
+    if (filters.shiftId !== undefined && filters.shiftId !== null) {
+      list = list.filter((entry) => entry.shift_id === Number(filters.shiftId));
+    }
 
     if (filters.shiftType && filters.shiftType !== 'ALL') {
       list = list.filter((e) => e.shift_type === filters.shiftType);
@@ -317,6 +349,7 @@ export const api = {
     }
 
     const expectedDrawerCash = openingFloat + cashInflow - totalSpentOnShortItems - totalPendingAmount;
+    const totalShortItemsDeduction = totalSpentOnShortItems + totalPendingAmount;
 
     const cashShare = totalRevenue > 0 ? ((cashInflow / totalRevenue) * 100).toFixed(1) : 0;
     const onlineShare = totalRevenue > 0 ? ((onlineCollections / totalRevenue) * 100).toFixed(1) : 0;
@@ -334,7 +367,9 @@ export const api = {
       cashShare,
       onlineShare,
       pendingShortItemsCount,
-      totalSpentOnShortItems
+      totalSpentOnShortItems,
+      totalPendingShortItemsAmount: totalPendingAmount,
+      totalShortItemsDeduction
     };
   },
 
@@ -418,6 +453,41 @@ export const api = {
     return store.shift_closings.find((c) => c.id === id || c.closing_code === id);
   },
 
+  async updateShiftClosing(id, data) {
+    if (isElectron) return window.electronAPI.updateShiftClosing(id, data);
+    const store = getBrowserStore();
+    const closing = store.shift_closings.find((c) => c.id === id);
+    if (!closing) throw new Error('Closing not found');
+    if (closing.is_void) throw new Error('A void closing cannot be edited');
+    const countedCash = Number(data.counted_cash);
+    if (!Number.isFinite(countedCash) || countedCash < 0) throw new Error('Invalid counted cash');
+    closing.employee_1 = String(data.employee_1 || '').trim();
+    closing.employee_2 = String(data.employee_2 || '').trim();
+    closing.cashier_name = `${closing.employee_1} & ${closing.employee_2}`;
+    closing.counted_cash = countedCash;
+    closing.denominations_json = typeof data.denominations_json === 'string' ? data.denominations_json : JSON.stringify(data.denominations_json || {});
+    closing.audit_notes = String(data.audit_notes || '').trim();
+    recalculateBrowserClosing(store, closing.shift_id);
+    saveBrowserStore(store);
+    return closing;
+  },
+
+  async voidShiftClosing(id, reason) {
+    if (isElectron) return window.electronAPI.voidShiftClosing(id, reason);
+    const store = getBrowserStore();
+    const closing = store.shift_closings.find((c) => c.id === id);
+    if (!closing) throw new Error('Closing not found');
+    const cleanReason = String(reason || '').trim();
+    if (!cleanReason) throw new Error('Void reason is required');
+    closing.is_void = 1;
+    closing.status = 'VOID';
+    closing.void_reason = cleanReason;
+    closing.voided_at = new Date().toISOString();
+    closing.updated_at = closing.voided_at;
+    saveBrowserStore(store);
+    return closing;
+  },
+
   async getSettings() {
     if (isElectron) return window.electronAPI.getSettings();
     const store = getBrowserStore();
@@ -464,12 +534,49 @@ export const api = {
       status: 'PENDING',
       returned_amount: 0,
       spent_amount: 0,
+      bill_amount: 0,
+      reference_no: '',
+      pharmacy: '',
       created_at: new Date().toISOString()
     };
     
     store.short_items.unshift(newItem);
     saveBrowserStore(store);
     return newItem;
+  },
+
+  async updateShortItem(id, data) {
+    if (isElectron) return window.electronAPI.updateShortItem(id, data);
+    const store = getBrowserStore();
+    const item = (store.short_items || []).find(i => i.id === id);
+    if (!item) throw new Error('Short item not found');
+
+    const amount = parseFloat(data.amount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid amount');
+    const billAmount = Number(item.bill_amount || item.spent_amount) || 0;
+    if (item.status === 'RETURNED' && amount < billAmount) {
+      throw new Error('Issued amount cannot be less than bill amount');
+    }
+
+    item.amount = amount;
+    item.given_to = String(data.given_to || '').trim();
+    item.notes = String(data.notes || '').trim();
+    item.spent_amount = item.status === 'RETURNED' ? billAmount : 0;
+    item.returned_amount = item.status === 'RETURNED' ? amount - billAmount : 0;
+    recalculateBrowserClosing(store, item.shift_id);
+    saveBrowserStore(store);
+    return item;
+  },
+
+  async deleteShortItem(id) {
+    if (isElectron) return window.electronAPI.deleteShortItem(id);
+    const store = getBrowserStore();
+    const index = (store.short_items || []).findIndex(i => i.id === id);
+    if (index === -1) throw new Error('Short item not found');
+    const [deleted] = store.short_items.splice(index, 1);
+    recalculateBrowserClosing(store, deleted.shift_id);
+    saveBrowserStore(store);
+    return { success: true };
   },
 
   async returnShortItem(id, data) {
@@ -480,11 +587,22 @@ export const api = {
     const item = store.short_items.find(i => i.id === id);
     if (!item) return null;
     
-    const returnedAmount = parseFloat(data.returned_amount) || 0;
+    const billAmount = Number(data.bill_amount);
+    if (!Number.isFinite(billAmount) || billAmount < 0) throw new Error('Invalid bill amount');
+    if (billAmount > Number(item.amount)) throw new Error('Bill amount cannot exceed given amount');
+    const referenceNo = String(data.reference_no || '').trim();
+    const pharmacy = String(data.pharmacy || '').trim();
+    if (!referenceNo) throw new Error('Reference number is required');
+    if (!pharmacy) throw new Error('Pharmacy name is required');
+    const returnedAmount = Number(item.amount) - billAmount;
     item.status = 'RETURNED';
     item.returned_amount = returnedAmount;
-    item.spent_amount = item.amount - returnedAmount;
+    item.spent_amount = billAmount;
+    item.bill_amount = billAmount;
+    item.reference_no = referenceNo;
+    item.pharmacy = pharmacy;
     item.returned_at = new Date().toISOString();
+    recalculateBrowserClosing(store, item.shift_id);
     
     saveBrowserStore(store);
     return item;

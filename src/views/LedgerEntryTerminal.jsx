@@ -105,6 +105,20 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
     }
   };
 
+  const handleDeleteEntry = async (entry) => {
+    const shouldDelete = window.confirm(
+      `Delete receipt ${entry.invoice_number} for ${settings.currency} ${entry.amount}?`
+    );
+
+    if (shouldDelete) {
+      await deleteLedgerEntry(entry.id);
+    }
+
+    // The native confirmation dialog moves focus away from the payment field.
+    // Restore it after the dialog closes and any ledger state update finishes.
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
   const formatDate = (isoStr) => {
     if (!isoStr) return '';
     const d = new Date(isoStr);
@@ -186,7 +200,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 gap-5 pt-4 border-t border-slate-100">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center space-x-1.5">
                 <Calculator className="w-3.5 h-3.5 text-slate-400" />
@@ -199,19 +213,6 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
                 placeholder="Optional customer/item notes..."
                 className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white transition-all shadow-sm"
               />
-            </div>
-
-            <div className="flex items-end">
-              {onSwitchToArchive && (
-                <button
-                  type="button"
-                  onClick={onSwitchToArchive}
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all shadow-xs"
-                >
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  <span>View All Past Ledgers</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -283,7 +284,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
               Receipt Log
             </span>
-            {onSwitchToArchive && (
+            {/* {onSwitchToArchive && (
               <button
                 type="button"
                 onClick={onSwitchToArchive}
@@ -291,7 +292,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
               >
                 View Master Ledger &rarr;
               </button>
-            )}
+            )} */}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -335,16 +336,12 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
                     </div>
 
                     <div className="flex items-center space-x-3 flex-shrink-0">
-                      <span className="font-mono text-base font-black text-slate-900">
+                      <span className="font-mono text-base font-black text-slate-900 whitespace-nowrap">
                         {settings.currency} {Number(entry.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Delete receipt ${entry.invoice_number} for ${settings.currency} ${entry.amount}?`)) {
-                            deleteLedgerEntry(entry.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteEntry(entry)}
                         className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                         title="Delete receipt"
                       >

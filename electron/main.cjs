@@ -162,6 +162,16 @@ app.whenReady().then(async () => {
     return db.addShortItem(data);
   });
 
+  ipcMain.handle('update-short-item', (_, { id, data }) => {
+    logDebug('IPC update-short-item: ' + id);
+    return db.updateShortItem(id, data);
+  });
+
+  ipcMain.handle('delete-short-item', (_, id) => {
+    logDebug('IPC delete-short-item: ' + id);
+    return db.deleteShortItem(id);
+  });
+
   ipcMain.handle('return-short-item', (_, { id, data }) => {
     logDebug('IPC return-short-item: ' + id);
     return db.returnShortItem(id, data);
@@ -173,6 +183,8 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('get-closing-by-id', (_, id) => db.getClosingById(id));
+  ipcMain.handle('update-shift-closing', (_, { id, data }) => db.updateShiftClosing(id, data));
+  ipcMain.handle('void-shift-closing', (_, { id, reason }) => db.voidShiftClosing(id, reason));
   ipcMain.handle('get-settings', () => db.getSettings());
   ipcMain.handle('update-settings', (_, settings) => db.updateSettings(settings));
   ipcMain.handle('print-slip', async () => {

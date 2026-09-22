@@ -15,6 +15,7 @@
   "build": {
     "appId": "com.zadapharmacy.poscashbook",
     "productName": "Zada Pharmacy POS",
+    "copyright": "Copyright © 2026 Zada Pharmacy. Developed by Zada IT Team (Humayun Khan & Faizullah)",
     "directories": {
       "output": "dist-installers"
     },
@@ -25,6 +26,8 @@
       "public/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
+      "legalTrademarks": "Zada Pharmacy",
       "target": [
         "nsis",
         "portable"
@@ -35,7 +38,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Zada Pharmacy POS"
+      "shortcutName": "Zada Pharmacy POS",
+      "installerIcon": "build/installerIcon.ico",
+      "uninstallerIcon": "build/installerIcon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerHeaderIcon": "build/installerIcon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "include": "build/installer.nsh"
     }
   },
   "keywords": [
@@ -47,7 +57,7 @@
     "react",
     "sqlite"
   ],
-  "author": "Zada Pharmacy",
+  "author": "Zada IT Team (Humayun Khan & Faizullah)",
   "license": "MIT",
   "dependencies": {
     "lucide-react": "^1.16.0",

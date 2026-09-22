@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import EditClosingModal from '../components/EditClosingModal';
 import { 
   Archive, 
   Plus, 
@@ -12,15 +13,20 @@ import {
   Receipt,
   Sun,
   Moon,
-  Printer
+  Printer,
+  Pencil,
+  Trash2,
+  Ban
 } from 'lucide-react';
 
 export default function AllClosingsView({ onSwitchToClosing }) {
-  const { allClosings, settings, openSlip, setCurrentView } = useApp();
+  const { allClosings, settings, setCurrentView, updateClosing, voidClosing, openClosingDetails, openSlip } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('ALL'); 
   const [shiftFilter, setShiftFilter] = useState('ALL'); 
   const [loading, setLoading] = useState(true);
+  const [editClosing, setEditClosing] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fake loading effect for UI Polish
   useEffect(() => {
@@ -28,9 +34,10 @@ export default function AllClosingsView({ onSwitchToClosing }) {
     return () => clearTimeout(timer);
   }, []);
 
-  const totalClosingsSaved = allClosings.length;
-  const totalCashCounter = allClosings.reduce((sum, c) => sum + (Number(c.cash_sales) || 0), 0);
-  const totalOnline = allClosings.reduce((sum, c) => sum + (Number(c.online_sales) || 0), 0);
+  const activeClosings = allClosings.filter((closing) => !Number(closing.is_void));
+  const totalClosingsSaved = activeClosings.length;
+  const totalCashCounter = activeClosings.reduce((sum, c) => sum + (Number(c.cash_sales) || 0), 0);
+  const totalOnline = activeClosings.reduce((sum, c) => sum + (Number(c.online_sales) || 0), 0);
   const totalRevenueClosed = totalCashCounter + totalOnline;
 
   const filteredClosings = allClosings.filter((c) => {
@@ -44,10 +51,28 @@ export default function AllClosingsView({ onSwitchToClosing }) {
     const matchesShift = shiftFilter === 'ALL' || c.shift_type === shiftFilter;
     const isBalanced = Math.abs(c.variance || 0) < 0.01;
     
-    if (filterTab === 'Balanced') return matchesSearch && matchesShift && isBalanced;
-    if (filterTab === 'Variance') return matchesSearch && matchesShift && !isBalanced;
+    const isVoid = Number(c.is_void) === 1;
+    if (filterTab === 'Void') return matchesSearch && matchesShift && isVoid;
+    if (filterTab === 'Balanced') return matchesSearch && matchesShift && !isVoid && isBalanced;
+    if (filterTab === 'Variance') return matchesSearch && matchesShift && !isVoid && !isBalanced;
     return matchesSearch && matchesShift;
   });
+
+  const handleEdit = async (data) => {
+    if (!editClosing) return;
+    setIsSaving(true);
+    const updated = await updateClosing(editClosing.id, data);
+    setIsSaving(false);
+    if (updated) setEditClosing(null);
+  };
+
+  const handleVoid = async (closing) => {
+    const reason = window.prompt(`Reason for voiding ${closing.closing_code}:`);
+    if (reason === null) return;
+    if (!reason.trim()) return;
+    if (!window.confirm(`Mark ${closing.closing_code} as VOID? Its ledgers and short items will remain preserved.`)) return;
+    await voidClosing(closing.id, reason.trim());
+  };
 
   const hasActiveFilters = searchQuery || filterTab !== 'ALL' || shiftFilter !== 'ALL';
 
@@ -82,7 +107,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-slate-400 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Closings Saved</span>
-          <div className="text-3xl font-black text-slate-800 font-mono my-2">{totalClosingsSaved}</div>
+          <div className="text-2xl lg:text-3xl font-black text-slate-800 font-mono my-2">{totalClosingsSaved}</div>
           <span className="text-xs font-semibold text-slate-400">Recorded shifts</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
@@ -90,7 +115,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Total Cash Counter</span>
             <Banknote className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-3xl font-black text-emerald-800 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-emerald-800 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalCashCounter.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Cash register intake</span>
@@ -100,14 +125,14 @@ export default function AllClosingsView({ onSwitchToClosing }) {
             <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Total Online</span>
             <CreditCard className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="text-3xl font-black text-indigo-800 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-indigo-800 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalOnline.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Digital & card payments</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-slate-800 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Total Revenue Closed</span>
-          <div className="text-3xl font-black text-slate-900 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-slate-900 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalRevenueClosed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Cash + Online aggregated</span>
@@ -143,7 +168,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
             </div>
 
             <div className="flex rounded-xl bg-slate-200/50 p-1 text-xs font-bold shadow-inner border border-slate-200/50">
-              {['ALL', 'Balanced', 'Variance'].map((tab) => (
+              {['ALL', 'Balanced', 'Variance', 'Void'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setFilterTab(tab)}
@@ -169,6 +194,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                 <th className="py-3 px-5">Staff (Both)</th>
                 <th className="py-3 px-5 text-right">Float</th>
                 <th className="py-3 px-5 text-right">Cash Counter</th>
+                <th className="py-3 px-5 text-right">Short Items</th>
                 <th className="py-3 px-5 text-right">Online</th>
                 <th className="py-3 px-5 text-right">Total Closed</th>
                 <th className="py-3 px-5 text-center">Till Status</th>
@@ -186,6 +212,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                     <td className="py-4 px-5"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
                     <td className="py-4 px-5"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
                     <td className="py-4 px-5"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
+                    <td className="py-4 px-5"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
                     <td className="py-4 px-5"><div className="h-4 bg-slate-200 rounded w-24 ml-auto"></div></td>
                     <td className="py-4 px-5"><div className="h-5 bg-slate-200 rounded-full w-20 mx-auto"></div></td>
                     <td className="py-4 px-5"><div className="h-7 w-14 bg-slate-200 rounded mx-auto"></div></td>
@@ -193,7 +220,7 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                 ))
               ) : filteredClosings.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={11}>
                     <div className="py-16 flex flex-col items-center justify-center text-slate-500 animate-fade-in space-y-4">
                       <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm">
                         <Archive className="w-8 h-8 text-slate-300" />
@@ -212,15 +239,20 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                 </tr>
               ) : (
                 filteredClosings.map((c) => {
+                  const isVoid = Number(c.is_void) === 1;
                   const isBalanced = Math.abs(c.variance || 0) < 0.01;
                   const isShortage = (c.variance || 0) < -0.01;
                   const isNight = c.shift_type === 'Night';
                   const dateStr = c.closed_at ? new Date(c.closed_at).toLocaleDateString() : '';
                   const timeStr = c.closed_at ? new Date(c.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
                   const staffDisplay = c.employee_1 && c.employee_2 ? `${c.employee_1} & ${c.employee_2}` : c.cashier_name || '—';
+                  const shortItemsAmount = Math.max(
+                    0,
+                    Number(c.opening_float || 0) + Number(c.cash_sales || 0) - Number(c.expected_drawer_cash || 0)
+                  );
 
                   return (
-                    <tr key={c.id} className="hover:bg-slate-50/70 even:bg-slate-50/40 transition-colors">
+                    <tr key={c.id} className={`hover:bg-slate-50/70 even:bg-slate-50/40 transition-colors ${isVoid ? 'opacity-60 bg-slate-100/80' : ''}`}>
                       <td className="py-3 px-5 font-bold text-slate-900 whitespace-nowrap">{c.closing_code}</td>
                       <td className="py-3 px-5 text-[11px] text-slate-500 whitespace-nowrap">
                         <div className="font-semibold text-slate-600">{dateStr}</div>
@@ -235,21 +267,23 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                       <td className="py-3 px-5 font-sans text-slate-800 font-bold text-xs max-w-xs truncate">{staffDisplay}</td>
                       <td className="py-3 px-5 text-right whitespace-nowrap">{settings.currency} {Number(c.opening_float || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 px-5 text-right font-black text-emerald-700 whitespace-nowrap">{settings.currency} {Number(c.cash_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="py-3 px-5 text-right font-black text-rose-600 whitespace-nowrap">- {settings.currency} {shortItemsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 px-5 text-right text-indigo-700 font-black whitespace-nowrap">{settings.currency} {Number(c.online_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 px-5 text-right font-black text-slate-900 whitespace-nowrap">{settings.currency} {Number(c.total_revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                       <td className="py-3 px-5 text-center whitespace-nowrap">
                         <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-md text-[10px] font-sans font-black uppercase tracking-wider shadow-sm ${
+                          isVoid ? 'bg-slate-200 text-slate-700 border border-slate-300' :
                           isBalanced ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : isShortage ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
-                          {isBalanced ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                          <span>{isBalanced ? 'Balanced' : 'Variance'}</span>
+                          {isVoid ? <Ban className="w-3.5 h-3.5" /> : isBalanced ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                          <span>{isVoid ? 'VOID' : isBalanced ? 'Balanced' : 'Variance'}</span>
                         </span>
                       </td>
                       <td className="py-3 px-5">
                         <div className="flex items-center justify-center space-x-2">
                           <button
                             type="button"
-                            onClick={() => openSlip(c)}
+                            onClick={() => openClosingDetails(c)}
                             className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-sans font-bold flex items-center space-x-1.5 transition-colors shadow-sm active:scale-95"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -258,11 +292,22 @@ export default function AllClosingsView({ onSwitchToClosing }) {
                           <button
                             type="button"
                             onClick={() => openSlip(c)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 text-xs font-sans font-bold flex items-center space-x-1.5 transition-colors shadow-sm active:scale-95"
+                            className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                            title="Print closing (Thermal or A4)"
                           >
                             <Printer className="w-3.5 h-3.5" />
-                            <span>Print</span>
                           </button>
+                          {!isVoid && <button
+                            type="button"
+                            onClick={() => setEditClosing(c)}
+                            className="p-2 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 transition-colors"
+                            title="Edit closing"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>}
+                          {!isVoid && <button type="button" onClick={() => handleVoid(c)} className="p-2 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 transition-colors" title="Void closing (entries stay preserved)">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -273,6 +318,14 @@ export default function AllClosingsView({ onSwitchToClosing }) {
           </table>
         </div>
       </div>
+
+      <EditClosingModal
+        closing={editClosing}
+        currency={settings.currency}
+        saving={isSaving}
+        onClose={() => setEditClosing(null)}
+        onSave={handleEdit}
+      />
     </div>
   );
 }

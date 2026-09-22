@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
+import EditShortItemModal from '../components/EditShortItemModal';
+import ReturnShortItemModal from '../components/ReturnShortItemModal';
 import {
   ShoppingCart,
   Search,
@@ -14,7 +16,9 @@ import {
   Moon,
   RotateCcw,
   Receipt,
-  Download
+  Download,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 export default function AllShortItemsList({ onSwitchToTerminal }) {
@@ -31,8 +35,32 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'RETURNED'
   const [shiftFilter, setShiftFilter] = useState('ALL');   // 'ALL' | 'Day' | 'Night'
 
-  const [returnModal, setReturnModal] = useState({ open: false, item: null, returnedAmount: '' });
+  const emptyReturnModal = { open: false, item: null, billAmount: '', referenceNo: '', pharmacy: '' };
+  const [returnModal, setReturnModal] = useState(emptyReturnModal);
+  const [editItem, setEditItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const shortItemStaffList = useMemo(() => {
+    const raw = settings?.short_items_staff;
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return String(raw).split(',').map((staff) => staff.trim()).filter(Boolean);
+    }
+  }, [settings?.short_items_staff]);
+
+  const pharmacyList = useMemo(() => {
+    const raw = settings?.short_item_pharmacies;
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return String(raw).split(',').map((value) => value.trim()).filter(Boolean);
+    }
+  }, [settings?.short_item_pharmacies]);
 
   const loadAllItems = async () => {
     setLoading(true);
@@ -58,11 +86,13 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
     setIsSubmitting(true);
     try {
       const res = await api.returnShortItem(returnModal.item.id, {
-        returned_amount: returnModal.returnedAmount
+        bill_amount: returnModal.billAmount,
+        reference_no: returnModal.referenceNo,
+        pharmacy: returnModal.pharmacy,
       });
       if (res) {
         showToast('Short item returned successfully', 'success');
-        setReturnModal({ open: false, item: null, returnedAmount: '' });
+        setReturnModal(emptyReturnModal);
         await loadAllItems();
         await refreshShortItems();
       }
@@ -70,6 +100,34 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
       showToast(err.message || 'Error returning short item', 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditSubmit = async (data) => {
+    if (!editItem) return;
+    setIsSubmitting(true);
+    try {
+      await api.updateShortItem(editItem.id, data);
+      showToast('Short item updated successfully', 'success');
+      setEditItem(null);
+      await loadAllItems();
+      await refreshShortItems();
+    } catch (err) {
+      showToast(err.message || 'Error updating short item', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (item) => {
+    if (!window.confirm(`Delete short item #${String(item.id).padStart(4, '0')} permanently?`)) return;
+    try {
+      await api.deleteShortItem(item.id);
+      showToast('Short item deleted successfully', 'info');
+      await loadAllItems();
+      await refreshShortItems();
+    } catch (err) {
+      showToast(err.message || 'Error deleting short item', 'error');
     }
   };
 
@@ -170,7 +228,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
           <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400">
             Total Cash Issued
           </span>
-          <div className="text-3xl font-black text-indigo-700 dark:text-indigo-300 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-indigo-700 dark:text-indigo-300 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalIssued.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Given to purchasing staff</span>
@@ -180,7 +238,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
             Total Cash Returned
           </span>
-          <div className="text-3xl font-black text-emerald-700 dark:text-emerald-300 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-emerald-700 dark:text-emerald-300 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalReturned.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Returned back to till</span>
@@ -190,7 +248,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
           <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-400">
             Net Cash Spent
           </span>
-          <div className="text-3xl font-black text-rose-700 dark:text-rose-300 font-mono my-2 truncate">
+          <div className="text-2xl lg:text-3xl font-black text-rose-700 dark:text-rose-300 font-mono my-2 whitespace-nowrap">
             {settings.currency} {totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <span className="text-xs font-semibold text-slate-400">Utilized for medicine purchase</span>
@@ -368,13 +426,18 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
                         <span className="text-xs text-slate-600 dark:text-slate-300 truncate block" title={item.notes || 'No description'}>
                           {item.notes || '—'}
                         </span>
+                        {item.status === 'RETURNED' && (item.pharmacy || item.reference_no) && (
+                          <span className="text-[10px] text-slate-400 block mt-1 truncate" title={`${item.pharmacy || ''} ${item.reference_no || ''}`}>
+                            {item.pharmacy || 'Pharmacy'} · Ref: {item.reference_no || '—'}
+                          </span>
+                        )}
                       </td>
 
-                      <td className="py-3.5 px-5 text-right font-black text-slate-800 dark:text-slate-100">
+                      <td className="py-3.5 px-5 text-right font-black text-slate-800 dark:text-slate-100 whitespace-nowrap">
                         {settings.currency} {Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
-                      <td className="py-3.5 px-5 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-3.5 px-5 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                         {item.returned_amount !== null && item.returned_amount !== undefined ? (
                           `${settings.currency} ${Number(item.returned_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                         ) : (
@@ -382,7 +445,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
                         )}
                       </td>
 
-                      <td className="py-3.5 px-5 text-right font-black text-rose-600 dark:text-rose-400">
+                      <td className="py-3.5 px-5 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
                         {item.spent_amount !== null && item.spent_amount !== undefined ? (
                           `${settings.currency} ${Number(item.spent_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                         ) : (
@@ -402,18 +465,24 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
                       </td>
 
                       <td className="py-3.5 px-5 text-center font-sans">
-                        {isPending ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                        {isPending && (
                           <button
                             type="button"
-                            onClick={() => setReturnModal({ open: true, item, returnedAmount: '' })}
+                            onClick={() => setReturnModal({ ...emptyReturnModal, open: true, item, pharmacy: pharmacyList[0] || '' })}
                             className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center space-x-1 mx-auto shadow-sm active:scale-95"
                           >
                             <ArrowLeftRight className="w-3.5 h-3.5" />
                             <span>Return</span>
                           </button>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-bold">Settled</span>
                         )}
+                          <button type="button" onClick={() => setEditItem(item)} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50" title="Edit short item">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button type="button" onClick={() => handleDelete(item)} className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50" title="Delete short item">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -425,7 +494,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
       </div>
 
       {/* Return Modal Dialog */}
-      {returnModal.open && returnModal.item && (
+      {false && returnModal.open && returnModal.item && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800 animate-scale-up">
             <div className="bg-[#27325b] px-6 py-5 border-b border-[#27325b] flex justify-between items-center">
@@ -490,6 +559,25 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
           </div>
         </div>
       )}
+
+      <ReturnShortItemModal
+        state={returnModal}
+        setState={setReturnModal}
+        currency={settings.currency}
+        pharmacyOptions={pharmacyList}
+        submitting={isSubmitting}
+        onClose={() => setReturnModal(emptyReturnModal)}
+        onSubmit={handleReturnSubmit}
+      />
+
+      <EditShortItemModal
+        item={editItem}
+        currency={settings.currency}
+        staffOptions={shortItemStaffList}
+        saving={isSubmitting}
+        onClose={() => setEditItem(null)}
+        onSave={handleEditSubmit}
+      />
     </div>
   );
 }

@@ -169,6 +169,10 @@ function createTables() {
       status TEXT NOT NULL,
       denominations_json TEXT NOT NULL,
       audit_notes TEXT,
+      is_void INTEGER DEFAULT 0,
+      void_reason TEXT,
+      voided_at DATETIME,
+      updated_at DATETIME,
       closed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -180,6 +184,9 @@ function createTables() {
       status TEXT DEFAULT 'PENDING',
       returned_amount REAL DEFAULT 0.0,
       spent_amount REAL DEFAULT 0.0,
+      bill_amount REAL DEFAULT 0.0,
+      reference_no TEXT,
+      pharmacy TEXT,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       returned_at DATETIME
@@ -204,6 +211,10 @@ function migrateTables() {
   try { db.run("ALTER TABLE shift_closings ADD COLUMN shift_type TEXT DEFAULT 'Day'"); } catch (e) {}
   try { db.run("ALTER TABLE shift_closings ADD COLUMN employee_1 TEXT"); } catch (e) {}
   try { db.run("ALTER TABLE shift_closings ADD COLUMN employee_2 TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE shift_closings ADD COLUMN is_void INTEGER DEFAULT 0"); } catch (e) {}
+  try { db.run("ALTER TABLE shift_closings ADD COLUMN void_reason TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE shift_closings ADD COLUMN voided_at DATETIME"); } catch (e) {}
+  try { db.run("ALTER TABLE shift_closings ADD COLUMN updated_at DATETIME"); } catch (e) {}
 
   // Ensure short_items table exists (if migration missed)
   try {
@@ -215,11 +226,17 @@ function migrateTables() {
       status TEXT DEFAULT 'PENDING',
       returned_amount REAL DEFAULT 0.0,
       spent_amount REAL DEFAULT 0.0,
+      bill_amount REAL DEFAULT 0.0,
+      reference_no TEXT,
+      pharmacy TEXT,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       returned_at DATETIME
     )`);
   } catch(e) {}
+  try { db.run("ALTER TABLE short_items ADD COLUMN bill_amount REAL DEFAULT 0.0"); } catch (e) {}
+  try { db.run("ALTER TABLE short_items ADD COLUMN reference_no TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE short_items ADD COLUMN pharmacy TEXT"); } catch (e) {}
 }
 
 function seedInitialData() {
@@ -235,6 +252,7 @@ function seedInitialData() {
     db.run("INSERT INTO settings (key, value) VALUES ('night_employee_1', 'Hamza Khan')");
     db.run("INSERT INTO settings (key, value) VALUES ('night_employee_2', 'Bilal Ahmed')");
     db.run("INSERT INTO settings (key, value) VALUES ('short_items_staff', ?)", [JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)'])]);
+    db.run("INSERT INTO settings (key, value) VALUES ('short_item_pharmacies', ?)", [JSON.stringify(['Local Pharmacy', 'Medicine Market'])]);
   }
 
   // Ensure short_items_staff exists for existing databases
@@ -242,6 +260,12 @@ function seedInitialData() {
   if (!existingShortStaff) {
     db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('short_items_staff', ?)", [
       JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)'])
+    ]);
+  }
+  const existingPharmacies = queryOne("SELECT value FROM settings WHERE key = 'short_item_pharmacies'");
+  if (!existingPharmacies) {
+    db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('short_item_pharmacies', ?)", [
+      JSON.stringify(['Local Pharmacy', 'Medicine Market'])
     ]);
   }
 
@@ -408,6 +432,7 @@ function deleteLedgerEntry(id) {
   const entry = queryOne("SELECT * FROM ledger_entries WHERE id = ?", [id]);
   if (!entry) return null;
   run("DELETE FROM ledger_entries WHERE id = ?", [id]);
+  recalculateClosingForShift(entry.shift_id);
   return { success: true, deletedId: id, shift_id: entry.shift_id };
 }
 
@@ -432,6 +457,11 @@ function getAllLedgerEntries(filters = {}) {
     WHERE 1=1
   `;
   const params = [];
+
+  if (filters.shiftId !== undefined && filters.shiftId !== null) {
+    sql += ` AND l.shift_id = ?`;
+    params.push(Number(filters.shiftId));
+  }
 
   if (filters.method && filters.method !== 'ALL') {
     sql += ` AND l.payment_method = ?`;
@@ -491,20 +521,62 @@ function addShortItem(data) {
   return queryOne("SELECT * FROM short_items WHERE id = ?", [res.lastInsertRowid]);
 }
 
-function returnShortItem(id, data) {
+function updateShortItem(id, data) {
   if (!db) throw new Error('Database not initialized');
-  const returnedAmount = parseFloat(data.returned_amount) || 0;
-  
   const existing = queryOne("SELECT * FROM short_items WHERE id = ?", [id]);
   if (!existing) throw new Error('Short item not found');
 
-  const spentAmount = existing.amount - returnedAmount;
+  const amount = parseFloat(data.amount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid amount');
+  const billAmount = Number(existing.bill_amount || existing.spent_amount) || 0;
+  if (existing.status === 'RETURNED' && amount < billAmount) {
+    throw new Error('Issued amount cannot be less than bill amount');
+  }
+
+  const returnedAmount = existing.status === 'RETURNED' ? amount - billAmount : 0;
+  const spentAmount = existing.status === 'RETURNED' ? billAmount : 0;
+  run(`
+    UPDATE short_items
+    SET amount = ?, given_to = ?, notes = ?, spent_amount = ?, returned_amount = ?
+    WHERE id = ?
+  `, [amount, String(data.given_to || '').trim(), String(data.notes || '').trim(), spentAmount, returnedAmount, id]);
+
+  recalculateClosingForShift(existing.shift_id);
+
+  return queryOne("SELECT * FROM short_items WHERE id = ?", [id]);
+}
+
+function deleteShortItem(id) {
+  if (!db) throw new Error('Database not initialized');
+  const existing = queryOne("SELECT id, shift_id FROM short_items WHERE id = ?", [id]);
+  if (!existing) throw new Error('Short item not found');
+  run("DELETE FROM short_items WHERE id = ?", [id]);
+  recalculateClosingForShift(existing.shift_id);
+  return { success: true };
+}
+
+function returnShortItem(id, data) {
+  if (!db) throw new Error('Database not initialized');
+  const existing = queryOne("SELECT * FROM short_items WHERE id = ?", [id]);
+  if (!existing) throw new Error('Short item not found');
+
+  const billAmount = Number(data.bill_amount);
+  if (!Number.isFinite(billAmount) || billAmount < 0) throw new Error('Invalid bill amount');
+  if (billAmount > Number(existing.amount)) throw new Error('Bill amount cannot exceed given amount');
+  const referenceNo = String(data.reference_no || '').trim();
+  const pharmacy = String(data.pharmacy || '').trim();
+  if (!referenceNo) throw new Error('Reference number is required');
+  if (!pharmacy) throw new Error('Pharmacy name is required');
+  const returnedAmount = Number(existing.amount) - billAmount;
 
   run(`
     UPDATE short_items 
-    SET status = 'RETURNED', returned_amount = ?, spent_amount = ?, returned_at = datetime('now', 'localtime')
+    SET status = 'RETURNED', returned_amount = ?, spent_amount = ?, bill_amount = ?,
+      reference_no = ?, pharmacy = ?, returned_at = datetime('now', 'localtime')
     WHERE id = ?
-  `, [returnedAmount, spentAmount, id]);
+  `, [returnedAmount, billAmount, billAmount, referenceNo, pharmacy, id]);
+
+  recalculateClosingForShift(existing.shift_id);
 
   return queryOne("SELECT * FROM short_items WHERE id = ?", [id]);
 }
@@ -563,6 +635,7 @@ function getShiftSummary(shiftId) {
   }
 
   const expectedDrawerCash = openingFloat + cashInflow - totalSpentOnShortItems - totalPendingAmount;
+  const totalShortItemsDeduction = totalSpentOnShortItems + totalPendingAmount;
 
   const cashShare = totalRevenue > 0 ? ((cashInflow / totalRevenue) * 100).toFixed(1) : '0.0';
   const onlineShare = totalRevenue > 0 ? ((onlineCollections / totalRevenue) * 100).toFixed(1) : '0.0';
@@ -580,7 +653,9 @@ function getShiftSummary(shiftId) {
     cashShare,
     onlineShare,
     pendingShortItemsCount,
-    totalSpentOnShortItems
+    totalSpentOnShortItems,
+    totalPendingShortItemsAmount: totalPendingAmount,
+    totalShortItemsDeduction
   };
 }
 
@@ -726,6 +801,55 @@ function getClosingById(id) {
   return queryOne("SELECT * FROM shift_closings WHERE id = ? OR closing_code = ?", [id, id]);
 }
 
+function recalculateClosingForShift(shiftId) {
+  const closing = queryOne("SELECT * FROM shift_closings WHERE shift_id = ? AND COALESCE(is_void, 0) = 0 ORDER BY id DESC LIMIT 1", [shiftId]);
+  if (!closing) return null;
+  const summary = getShiftSummary(shiftId);
+  if (!summary) return closing;
+
+  const variance = Number(closing.counted_cash || 0) - Number(summary.expectedDrawerCash || 0);
+  const status = Math.abs(variance) < 0.01 ? 'Balanced' : variance < 0 ? 'Shortage' : 'Overage';
+  run(`
+    UPDATE shift_closings SET opening_float = ?, cash_sales = ?, online_sales = ?,
+      total_revenue = ?, expected_drawer_cash = ?, variance = ?, status = ?,
+      updated_at = datetime('now', 'localtime') WHERE id = ?
+  `, [summary.openingFloat, summary.cashInflow, summary.onlineCollections, summary.totalRevenue,
+    summary.expectedDrawerCash, variance, status, closing.id]);
+  return queryOne("SELECT * FROM shift_closings WHERE id = ?", [closing.id]);
+}
+
+function updateShiftClosing(id, data) {
+  if (!db) throw new Error('Database not initialized');
+  const closing = queryOne("SELECT * FROM shift_closings WHERE id = ?", [id]);
+  if (!closing) throw new Error('Closing not found');
+  if (Number(closing.is_void)) throw new Error('A void closing cannot be edited');
+
+  const countedCash = Number(data.counted_cash);
+  if (!Number.isFinite(countedCash) || countedCash < 0) throw new Error('Invalid counted cash');
+  run(`UPDATE shift_closings SET employee_1 = ?, employee_2 = ?, cashier_name = ?,
+    counted_cash = ?, denominations_json = ?, audit_notes = ?, updated_at = datetime('now', 'localtime')
+    WHERE id = ?`, [
+    String(data.employee_1 || '').trim(), String(data.employee_2 || '').trim(),
+    `${String(data.employee_1 || '').trim()} & ${String(data.employee_2 || '').trim()}`,
+    countedCash,
+    typeof data.denominations_json === 'string' ? data.denominations_json : JSON.stringify(data.denominations_json || {}),
+    String(data.audit_notes || '').trim(), id
+  ]);
+  return recalculateClosingForShift(closing.shift_id);
+}
+
+function voidShiftClosing(id, reason) {
+  if (!db) throw new Error('Database not initialized');
+  const closing = queryOne("SELECT * FROM shift_closings WHERE id = ?", [id]);
+  if (!closing) throw new Error('Closing not found');
+  if (Number(closing.is_void)) return closing;
+  const cleanReason = String(reason || '').trim();
+  if (!cleanReason) throw new Error('Void reason is required');
+  run(`UPDATE shift_closings SET is_void = 1, status = 'VOID', void_reason = ?,
+    voided_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?`, [cleanReason, id]);
+  return queryOne("SELECT * FROM shift_closings WHERE id = ?", [id]);
+}
+
 function getSettings() {
   if (!db) return {};
   const rows = queryAll("SELECT key, value FROM settings");
@@ -749,6 +873,8 @@ function updateSettings(newSettings) {
 
 function updateLedgerEntry(id, data) {
   if (!db) return null;
+  const existing = queryOne("SELECT * FROM ledger_entries WHERE id = ?", [id]);
+  if (!existing) return null;
   run(`
     UPDATE ledger_entries 
     SET customer_type = ?, payment_method = ?, notes = ?, amount = ?
@@ -760,6 +886,7 @@ function updateLedgerEntry(id, data) {
     parseFloat(data.amount) || 0,
     id
   ]);
+  recalculateClosingForShift(existing.shift_id);
   return queryOne("SELECT * FROM ledger_entries WHERE id = ?", [id]);
 }
 
@@ -812,11 +939,15 @@ module.exports = {
   saveShiftClosing,
   getAllClosings,
   getClosingById,
+  updateShiftClosing,
+  voidShiftClosing,
   getSettings,
   updateSettings,
   getBackupsList,
   restoreBackup,
   addShortItem,
+  updateShortItem,
+  deleteShortItem,
   returnShortItem,
   getShortItems
 };

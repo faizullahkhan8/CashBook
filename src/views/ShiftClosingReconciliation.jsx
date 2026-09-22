@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Scale, 
-  Banknote, 
-  CreditCard, 
-  Printer, 
-  AlertTriangle, 
-  CheckCircle2, 
-  RotateCcw, 
+import {
+  Scale,
+  Banknote,
+  CreditCard,
+  Printer,
+  AlertTriangle,
+  CheckCircle2,
+  RotateCcw,
   Sparkles,
   Plus,
   Minus,
@@ -57,17 +57,19 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
   const denomConfigs = [
     { key: '5000', label: 'Rs 5,000', type: 'NOTE', value: 5000, color: 'bg-emerald-50 text-emerald-800' },
     { key: '1000', label: 'Rs 1,000', type: 'NOTE', value: 1000, color: 'bg-teal-50 text-teal-800' },
-    { key: '500',  label: 'Rs 500',   type: 'NOTE', value: 500,  color: 'bg-cyan-50 text-cyan-800' },
-    { key: '100',  label: 'Rs 100',   type: 'NOTE', value: 100,  color: 'bg-blue-50 text-blue-800' },
-    { key: '50',   label: 'Rs 50',    type: 'NOTE', value: 50,   color: 'bg-indigo-50 text-indigo-800' },
-    { key: '20',   label: 'Rs 20',    type: 'NOTE', value: 20,   color: 'bg-violet-50 text-violet-800' },
-    { key: '10',   label: 'Rs 10',    type: 'NOTE', value: 10,   color: 'bg-purple-50 text-purple-800' },
-    { key: 'coins', label: 'Coins',   type: 'COIN', value: 1,    color: 'bg-slate-50 text-slate-800' },
+    { key: '500', label: 'Rs 500', type: 'NOTE', value: 500, color: 'bg-cyan-50 text-cyan-800' },
+    { key: '100', label: 'Rs 100', type: 'NOTE', value: 100, color: 'bg-blue-50 text-blue-800' },
+    { key: '50', label: 'Rs 50', type: 'NOTE', value: 50, color: 'bg-indigo-50 text-indigo-800' },
+    { key: '20', label: 'Rs 20', type: 'NOTE', value: 20, color: 'bg-violet-50 text-violet-800' },
+    { key: '10', label: 'Rs 10', type: 'NOTE', value: 10, color: 'bg-purple-50 text-purple-800' },
+    { key: 'coins', label: 'Coins', type: 'COIN', value: 1, color: 'bg-slate-50 text-slate-800' },
   ];
 
   const countedCash = denomConfigs.reduce((sum, item) => sum + (denominations[item.key] || 0) * item.value, 0);
   const currentFloat = parseFloat(floatInput) || 0;
-  const shortItemsDeduction = summary.totalSpentOnShortItems || 0;
+  // Pending items deduct the full cash issued; settled items deduct the actual bill amount.
+  const shortItemsDeduction = summary.totalShortItemsDeduction
+    ?? ((summary.totalSpentOnShortItems || 0) + (summary.totalPendingShortItemsAmount || 0));
   const expectedDrawerCash = currentFloat + summary.cashInflow - shortItemsDeduction;
   const variance = countedCash - expectedDrawerCash;
   const isBalanced = Math.abs(variance) < 0.01;
@@ -88,12 +90,12 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
   };
 
   const handleClearDenoms = () => {
-    setDenominations({'5000': 0, '1000': 0, '500': 0, '100': 0, '50': 0, '20': 0, '10': 0, 'coins': 0});
+    setDenominations({ '5000': 0, '1000': 0, '500': 0, '100': 0, '50': 0, '20': 0, '10': 0, 'coins': 0 });
   };
 
   const handleAutoFillExpected = () => {
     let remaining = Math.floor(expectedDrawerCash);
-    const newDenoms = {'5000': 0, '1000': 0, '500': 0, '100': 0, '50': 0, '20': 0, '10': 0, 'coins': 0};
+    const newDenoms = { '5000': 0, '1000': 0, '500': 0, '100': 0, '50': 0, '20': 0, '10': 0, 'coins': 0 };
     const values = [5000, 1000, 500, 100, 50, 20, 10];
     for (const v of values) {
       if (remaining >= v) {
@@ -186,9 +188,8 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
         </div>
 
         <div className="flex items-center space-x-3 p-5 pt-0 md:pt-5 bg-slate-50/50 rounded-bl-2xl md:rounded-bl-none h-full border-l border-slate-100">
-          <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider ${
-            isNight ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : 'bg-amber-50 border-amber-200 text-amber-900'
-          }`}>
+          <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-black uppercase tracking-wider ${isNight ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
             {isNight ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
             <span>{isNight ? 'Night Shift' : 'Day Shift'}</span>
           </div>
@@ -200,22 +201,65 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
         </div>
       </div>
 
+      {/* Opening Balance Input */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+          <div className="flex items-center space-x-3 lg:min-w-[220px]">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+              <Banknote className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-800">Opening Petty Cash</h3>
+              <p className="text-xs font-medium text-slate-400">Set balance before reviewing stats</p>
+            </div>
+          </div>
+
+          <div className="relative w-full lg:max-w-sm">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-slate-400">
+              {settings.currency}
+            </span>
+            <input
+              type="number"
+              step="any"
+              value={floatInput}
+              onChange={(e) => setFloatInput(e.target.value)}
+              onBlur={handleFloatBlur}
+              className="w-full h-12 pl-14 pr-4 rounded-xl border border-slate-300 bg-slate-50 text-lg font-mono font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-inner"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-500 font-semibold mr-1">Presets:</span>
+            {[0, 500, 1000, 2000, 5000].map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => handleFloatPreset(val)}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-mono font-bold text-slate-700 shadow-sm transition-colors"
+              >
+                {val}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-400 shadow-sm">
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">1. OPENING FLOAT</div>
-          <div className="mt-3 text-3xl font-black text-slate-800 font-mono truncate">
+          <div className="text-sm font-bold text-slate-500 uppercase tracking-wider">1. OPENING FLOAT</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-800 font-mono whitespace-nowrap">
             {settings.currency} {currentFloat.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-xs font-medium text-slate-400 mt-1">Starting till balance</p>
+          <p className="text-sm font-medium text-slate-400 mt-1">Starting till balance</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
           <div className="flex justify-between items-center">
-            <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">2. SALES INFLOW</div>
+            <div className="text-sm font-bold text-emerald-700 uppercase tracking-wider">2. SALES INFLOW</div>
             <Banknote className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="mt-3 text-3xl font-black text-emerald-800 font-mono truncate">
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-emerald-800 font-mono whitespace-nowrap">
             {settings.currency} {summary.cashInflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
           <p className="text-xs font-medium text-emerald-600 mt-1">{summary.cashCount} cash receipts</p>
@@ -223,66 +267,67 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
 
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-rose-500 shadow-sm">
           <div className="flex justify-between items-center">
-            <div className="text-xs font-bold text-rose-700 uppercase tracking-wider">3. SHORT ITEMS</div>
+            <div className="text-sm font-bold text-rose-700 uppercase tracking-wider">3. SHORT ITEMS</div>
             <Minus className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="mt-3 text-3xl font-black text-rose-800 font-mono truncate">
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-rose-800 font-mono whitespace-nowrap">
             - {settings.currency} {shortItemsDeduction.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-xs font-medium text-rose-600 mt-1">Cash utilized from drawer</p>
+          <p className="text-sm font-medium text-rose-600 mt-1">Cash utilized from drawer</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-xs font-bold text-teal-700 uppercase tracking-wider">4. EXPECTED IN DRAWER</div>
-          <div className="mt-3 text-3xl font-black text-slate-900 font-mono truncate">
+        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">4. Expected in Daraz</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
             {settings.currency} {expectedDrawerCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
+          <p className="text-sm font-bold text-red-500 mt-1">
+            Opening + Cash Sale - Short Items
+          </p>
+        </div>
+        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">5. Opening + Cash Sales</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
+            {settings.currency} {(currentFloat + summary.cashInflow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <p className="text-sm font-bold text-red-500 mt-1">
+            Before Short Items Deduction
+          </p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">6. Online Collections</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
+            {settings.currency} {(summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
           <p className="text-[11px] font-bold text-slate-500 mt-1">
-            Float + Inflow - Short Items
+            Online Collections
+          </p>
+        </div>
+        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">7. Grand Total</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
+            {settings.currency} {(expectedDrawerCash + summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <p className="text-sm font-bold text-red-500 mt-1">
+            Opening + Cash Sale - Short Items + Online
+          </p>
+        </div>
+        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">8. Computer Sale</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
+            {settings.currency} {(summary.cashInflow + summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <p className="text-sm font-bold text-red-500 mt-1">
+            Cash Sale + Online Collections
           </p>
         </div>
       </div>
 
       {/* Two Column Working Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Left Column (5/12) */}
         <div className="lg:col-span-5 space-y-6">
-          
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
-              <Banknote className="w-5 h-5 text-emerald-500" />
-              <h3 className="text-sm font-black text-slate-800">Opening Petty Cash</h3>
-            </div>
-            <div className="space-y-4">
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-slate-400">
-                  {settings.currency}
-                </span>
-                <input
-                  type="number"
-                  step="any"
-                  value={floatInput}
-                  onChange={(e) => setFloatInput(e.target.value)}
-                  onBlur={handleFloatBlur}
-                  className="w-full h-12 pl-14 pr-4 rounded-xl border border-slate-300 bg-slate-50 text-lg font-mono font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-inner"
-                />
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-500 font-semibold mr-1">Presets:</span>
-                {[0, 500, 1000, 2000, 5000].map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => handleFloatPreset(val)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-mono font-bold text-slate-700 shadow-sm transition-colors"
-                  >
-                    {val}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
@@ -315,9 +360,8 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Active Shift Session:</span>
                 <span className="text-[11px] text-slate-400 font-medium">Shift remains {closingShiftType} unless manually changed</span>
               </div>
-              <span className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg ${
-                isNight ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
-              }`}>
+              <span className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg ${isNight ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
                 {isNight ? '🌙 Night Shift' : '☀️ Day Shift'}
               </span>
             </div>
@@ -386,11 +430,10 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
                 type="button"
                 disabled={!confirmed || summary.pendingShortItemsCount > 0}
                 onClick={handleFinalize}
-                className={`h-12 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 transition-all shadow-md ${
-                  confirmed && summary.pendingShortItemsCount === 0
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25 active:scale-95'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                }`}
+                className={`h-12 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 transition-all shadow-md ${confirmed && summary.pendingShortItemsCount === 0
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25 active:scale-95'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                  }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Finalize Closing</span>
@@ -466,7 +509,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
                       </button>
                     </div>
 
-                    <div className="w-28 text-right font-mono text-sm font-black">
+                    <div className="min-w-[120px] text-right font-mono text-sm font-black whitespace-nowrap">
                       {settings.currency} {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
                   </div>
@@ -478,15 +521,14 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
           {/* Bottom Total Banner */}
           <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 select-none relative overflow-hidden">
             {/* Subtle background glow */}
-            <div className={`absolute -right-20 -bottom-20 w-64 h-64 rounded-full blur-3xl opacity-20 ${
-              isBalanced ? 'bg-emerald-500' : isShortage ? 'bg-rose-500' : 'bg-amber-500'
-            }`}></div>
-            
+            <div className={`absolute -right-20 -bottom-20 w-64 h-64 rounded-full blur-3xl opacity-20 ${isBalanced ? 'bg-emerald-500' : isShortage ? 'bg-rose-500' : 'bg-amber-500'
+              }`}></div>
+
             <div className="relative z-10">
               <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block">
                 Total Counted Cash
               </span>
-              <div className="text-4xl sm:text-5xl font-black text-white font-mono tracking-tight mt-1">
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-white font-mono tracking-tight mt-1 whitespace-nowrap">
                 {settings.currency} {countedCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>

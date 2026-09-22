@@ -17,6 +17,10 @@ export function AppProvider({ children }) {
     expectedDrawerCash: 0,
     cashShare: 0,
     onlineShare: 0,
+    totalSpentOnShortItems: 0,
+    totalPendingShortItemsAmount: 0,
+    totalShortItemsDeduction: 0,
+    pendingShortItemsCount: 0,
   });
   const [recentEntries, setRecentEntries] = useState([]);
   const [allClosings, setAllClosings] = useState([]);
@@ -35,6 +39,7 @@ export function AppProvider({ children }) {
     theme: 'light',
   });
   const [selectedClosingForSlip, setSelectedClosingForSlip] = useState(null);
+  const [selectedClosingForDetails, setSelectedClosingForDetails] = useState(null);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -81,6 +86,8 @@ export function AppProvider({ children }) {
     if (list) setShortItems(list);
     const summ = await api.getShiftSummary(activeShift.id);
     if (summ) setSummary(summ);
+    const closings = await api.getAllClosings();
+    if (closings) setAllClosings(closings);
   };
 
   useEffect(() => {
@@ -235,6 +242,8 @@ export function AppProvider({ children }) {
         setRecentEntries((prev) => prev.filter((e) => e.id !== id));
         const updatedSummary = await api.getShiftSummary(activeShift?.id);
         if (updatedSummary) setSummary(updatedSummary);
+        const closings = await api.getAllClosings();
+        if (closings) setAllClosings(closings);
         showToast('Entry removed from shift ledger', 'info');
       }
     } catch (err) {
@@ -298,6 +307,39 @@ export function AppProvider({ children }) {
     setSelectedClosingForSlip(null);
   };
 
+  const openClosingDetails = (closing) => {
+    setSelectedClosingForDetails(closing);
+    setCurrentView('closing-details');
+  };
+
+  const updateClosing = async (id, data) => {
+    try {
+      const updated = await api.updateShiftClosing(id, data);
+      if (updated) {
+        setAllClosings((prev) => prev.map((closing) => closing.id === id ? updated : closing));
+        showToast('Closing updated and totals recalculated', 'success');
+      }
+      return updated;
+    } catch (err) {
+      showToast(err.message || 'Failed to update closing', 'error');
+      return null;
+    }
+  };
+
+  const voidClosing = async (id, reason) => {
+    try {
+      const updated = await api.voidShiftClosing(id, reason);
+      if (updated) {
+        setAllClosings((prev) => prev.map((closing) => closing.id === id ? updated : closing));
+        showToast('Closing marked as VOID; linked entries were preserved', 'info');
+      }
+      return updated;
+    } catch (err) {
+      showToast(err.message || 'Failed to void closing', 'error');
+      return null;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -313,6 +355,7 @@ export function AppProvider({ children }) {
         settings,
         notification,
         selectedClosingForSlip,
+        selectedClosingForDetails,
         isSlipModalOpen,
         isStaffModalOpen,
         setIsStaffModalOpen,
@@ -329,6 +372,9 @@ export function AppProvider({ children }) {
         finalizeClosing,
         openSlip,
         closeSlip,
+        openClosingDetails,
+        updateClosing,
+        voidClosing,
         refreshData,
         refreshShortItems,
         showToast,

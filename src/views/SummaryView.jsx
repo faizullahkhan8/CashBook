@@ -1,13 +1,13 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Receipt, 
-  Banknote, 
-  CreditCard, 
-  Scale, 
-  PlusCircle, 
-  Printer, 
-  Calendar, 
+import {
+  Receipt,
+  Banknote,
+  CreditCard,
+  Scale,
+  PlusCircle,
+  Printer,
+  Calendar,
   CheckCircle2,
   TrendingUp,
   FileText
@@ -37,7 +37,7 @@ export default function SummaryView() {
       online_sales: summary.onlineCollections,
       total_revenue: summary.totalRevenue,
       expected_drawer_cash: summary.expectedDrawerCash,
-      counted_cash: summary.expectedDrawerCash, 
+      counted_cash: summary.expectedDrawerCash,
       variance: 0,
       status: 'In-Progress Draft',
       denominations_json: '{}',
@@ -56,9 +56,8 @@ export default function SummaryView() {
           <p className="text-sm font-medium text-slate-500 mt-1">Live operational snapshot for current counter shift</p>
         </div>
         <div className="flex items-center space-x-3">
-          <span className={`text-xs font-black px-4 py-1.5 rounded-full shadow-sm flex items-center space-x-2 uppercase tracking-wide border ${
-            isNight ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : 'bg-amber-50 border-amber-200 text-amber-900'
-          }`}>
+          <span className={`text-xs font-black px-4 py-1.5 rounded-full shadow-sm flex items-center space-x-2 uppercase tracking-wide border ${isNight ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
             <span>{isNight ? '🌙' : '☀️'}</span>
             <span>{isNight ? 'Night Shift' : 'Day Shift'}</span>
           </span>
@@ -69,9 +68,9 @@ export default function SummaryView() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 2xl:gap-6">
         {/* Total Shift Revenue */}
-        <div className="bg-white p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-800 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-800 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -81,9 +80,9 @@ export default function SummaryView() {
                 <Receipt className="w-5 h-5" />
               </div>
             </div>
-            <div className="mt-4 flex items-baseline space-x-2 font-mono">
-              <span className="text-lg font-bold text-slate-400">{settings.currency}</span>
-              <span className="text-4xl font-black text-slate-900 tracking-tight truncate max-w-full">
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-slate-400 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-slate-900 tracking-tight whitespace-nowrap">
                 {summary.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -95,19 +94,19 @@ export default function SummaryView() {
         </div>
 
         {/* Cash Inflow */}
-        <div className="bg-white p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-emerald-500 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-emerald-500 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                Cash Inflow
+                Cash in Hand
               </span>
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800">
-                DRAWER
+                Cash + Spent
               </span>
             </div>
-            <div className="mt-4 flex items-baseline space-x-2 font-mono">
-              <span className="text-lg font-bold text-emerald-600">{settings.currency}</span>
-              <span className="text-4xl font-black text-emerald-800 tracking-tight truncate max-w-full">
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-emerald-600 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-emerald-800 tracking-tight whitespace-nowrap">
                 {summary.cashInflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -119,7 +118,7 @@ export default function SummaryView() {
         </div>
 
         {/* Online Collections */}
-        <div className="bg-white p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-indigo-500 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-indigo-500 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
@@ -129,9 +128,9 @@ export default function SummaryView() {
                 CARDS/UPI
               </span>
             </div>
-            <div className="mt-4 flex items-baseline space-x-2 font-mono">
-              <span className="text-lg font-bold text-indigo-500">{settings.currency}</span>
-              <span className="text-4xl font-black text-indigo-800 tracking-tight truncate max-w-full">
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-indigo-500 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-indigo-800 tracking-tight whitespace-nowrap">
                 {summary.onlineCollections.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -143,7 +142,7 @@ export default function SummaryView() {
         </div>
 
         {/* Total Spend */}
-        <div className="bg-white p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-rose-500 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-rose-500 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-rose-700">
@@ -153,9 +152,9 @@ export default function SummaryView() {
                 SHORT ITEMS
               </span>
             </div>
-            <div className="mt-4 flex items-baseline space-x-2 font-mono">
-              <span className="text-lg font-bold text-rose-500">{settings.currency}</span>
-              <span className="text-4xl font-black text-rose-800 tracking-tight truncate max-w-full">
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-rose-500 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-rose-800 tracking-tight whitespace-nowrap">
                 {(summary.totalSpentOnShortItems || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -166,7 +165,7 @@ export default function SummaryView() {
         </div>
 
         {/* Net Cash (Cash - Spend) */}
-        <div className="bg-white p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
@@ -176,9 +175,9 @@ export default function SummaryView() {
                 CASH - SPEND
               </span>
             </div>
-            <div className="mt-4 flex items-baseline space-x-2 font-mono">
-              <span className="text-lg font-bold text-teal-600">{settings.currency}</span>
-              <span className="text-4xl font-black text-teal-800 tracking-tight truncate max-w-full">
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-teal-600 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-teal-800 tracking-tight whitespace-nowrap">
                 {(summary.cashInflow - (summary.totalSpentOnShortItems || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>

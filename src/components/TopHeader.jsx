@@ -4,11 +4,11 @@ import { useApp } from '../context/AppContext';
 
 export default function TopHeader({ title }) {
   const { activeShift, setIsStaffModalOpen, theme, toggleTheme } = useApp();
-  
+
   // Format date nicely: "Mon, 21 Sep 2026"
   const dateOpts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
   const todayStr = new Date().toLocaleDateString('en-US', dateOpts);
-  
+
   const isNight = activeShift?.shift_type === 'Night';
   const isDark = theme === 'dark';
   const emp1 = activeShift?.employee_1 || 'Employee 1';
@@ -25,16 +25,14 @@ export default function TopHeader({ title }) {
         <button
           type="button"
           onClick={() => setIsStaffModalOpen(true)}
-          className={`group flex items-center space-x-3 px-1.5 py-1.5 rounded-full border text-xs font-semibold transition-all shadow-sm ${
-            isNight
+          className={`group flex items-center space-x-3 px-1.5 py-1.5 rounded-full border text-xs font-semibold transition-all shadow-sm ${isNight
               ? 'bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-800 hover:border-indigo-300'
               : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-800 hover:border-amber-300'
-          }`}
+            }`}
           title="Click to switch shift or change assigned employees"
         >
-          <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-white shadow-inner ${
-            isNight ? 'bg-gradient-to-r from-indigo-500 to-indigo-600' : 'bg-gradient-to-r from-amber-400 to-amber-500'
-          }`}>
+          <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-white shadow-inner ${isNight ? 'bg-gradient-to-r from-indigo-500 to-indigo-600' : 'bg-gradient-to-r from-amber-400 to-amber-500'
+            }`}>
             {isNight ? (
               <Moon className="w-3.5 h-3.5 fill-white/20" />
             ) : (
@@ -65,11 +63,10 @@ export default function TopHeader({ title }) {
         <button
           type="button"
           onClick={toggleTheme}
-          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer select-none ${
-            isDark
+          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-all shadow-sm active:scale-95 cursor-pointer select-none ${isDark
               ? 'bg-slate-800 border-indigo-500/40 text-amber-300 hover:bg-slate-700 hover:text-amber-200 ring-2 ring-indigo-500/20'
               : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 ring-2 ring-slate-200/50'
-          }`}
+            }`}
           title={isDark ? 'Currently in Dark Mode. Click to switch to Light Mode' : 'Currently in Light Mode. Click to switch to Dark Mode'}
         >
           {isDark ? (
@@ -86,13 +83,13 @@ export default function TopHeader({ title }) {
         </button>
 
         {/* Register Active status pill */}
-        <div className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold shadow-sm">
+        {/* <div className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold shadow-sm">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
           <span className="hidden md:inline">Register Active</span>
-        </div>
+        </div> */}
       </div>
     </header>
   );

@@ -17,7 +17,10 @@ import {
   Save,
   ArrowRight,
   ShieldCheck,
-  ShoppingCart
+  ShoppingCart,
+  Code2,
+  Building2,
+  Plus
 } from 'lucide-react';
 import { api } from '../api';
 import { useApp } from '../context/AppContext';
@@ -58,6 +61,7 @@ export default function ReportsAuditView() {
   const [newStaffName, setNewStaffName] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingValue, setEditingValue] = useState('');
+  const [newPharmacyName, setNewPharmacyName] = useState('');
 
   useEffect(() => {
     api.getBackups?.().then(setBackups).catch(() => {});
@@ -81,6 +85,17 @@ export default function ReportsAuditView() {
     }
     return ['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)'];
   }, [settings?.short_items_staff]);
+
+  const pharmacyList = useMemo(() => {
+    const raw = settings?.short_item_pharmacies;
+    if (!raw) return ['Local Pharmacy', 'Medicine Market'];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return String(raw).split(',').map((value) => value.trim()).filter(Boolean);
+    }
+  }, [settings?.short_item_pharmacies]);
 
   const handleSaveShiftRoster = async (e) => {
     e.preventDefault();
@@ -186,6 +201,25 @@ export default function ReportsAuditView() {
     } catch (err) {
       showToast('Failed to reset defaults: ' + err.message, 'error');
     }
+  };
+
+  const handleAddPharmacy = async (e) => {
+    e.preventDefault();
+    const name = newPharmacyName.trim();
+    if (!name) return;
+    if (pharmacyList.some((item) => item.toLowerCase() === name.toLowerCase())) {
+      showToast('This pharmacy already exists', 'error');
+      return;
+    }
+    await updateSettings({ short_item_pharmacies: JSON.stringify([...pharmacyList, name]) });
+    setNewPharmacyName('');
+    showToast(`Added "${name}" to pharmacy dropdown`, 'success');
+  };
+
+  const handleDeletePharmacy = async (name) => {
+    if (!window.confirm(`Remove "${name}" from the Short Item pharmacy dropdown?`)) return;
+    await updateSettings({ short_item_pharmacies: JSON.stringify(pharmacyList.filter((item) => item !== name)) });
+    showToast(`Removed "${name}" from pharmacy dropdown`, 'info');
   };
 
   const handleRestore = async (filename) => {
@@ -698,6 +732,46 @@ export default function ReportsAuditView() {
               </div>
             )}
           </div>
+
+          {/* Short Item Pharmacy Dropdown Management */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                Purchase Pharmacies ({pharmacyList.length})
+              </h3>
+              <span className="text-[11px] text-slate-400 font-medium">Used in Short Item Return form</span>
+            </div>
+
+            <form onSubmit={handleAddPharmacy} className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={newPharmacyName}
+                onChange={(e) => setNewPharmacyName(e.target.value)}
+                placeholder="Enter pharmacy name..."
+                className="flex-1 h-12 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+              />
+              <button type="submit" disabled={!newPharmacyName.trim()} className="h-12 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+                <Plus className="w-4 h-4" /> Add Pharmacy
+              </button>
+            </form>
+
+            {pharmacyList.length === 0 ? (
+              <div className="py-8 text-center text-sm font-medium text-slate-400">No pharmacies configured. Add one above to enable the Return dropdown.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pharmacyList.map((pharmacy, index) => (
+                  <div key={pharmacy} className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-black text-xs flex items-center justify-center">{index + 1}</div>
+                      <div className="min-w-0"><span className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate block">{pharmacy}</span><span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Active in Dropdown</span></div>
+                    </div>
+                    <button type="button" onClick={() => handleDeletePharmacy(pharmacy)} className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40" title="Remove pharmacy"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -952,6 +1026,29 @@ export default function ReportsAuditView() {
           </div>
         </div>
       )}
+
+      {/* Footer System Info & Developer Credits */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#27325b] to-indigo-700 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+            <Code2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+              Zada Pharmacy POS — Cash Counter & Shift Closings Console
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Designed & Developed by <strong className="text-slate-700 dark:text-slate-200 font-bold">Zada IT Team (Humayun Khan & Faizullah)</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 text-[11px] font-mono font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700">
+          <span>Version 1.0.0</span>
+          <span>•</span>
+          <span className="text-emerald-600 dark:text-emerald-400">Production Release</span>
+        </div>
+      </div>
     </div>
   );
 }
