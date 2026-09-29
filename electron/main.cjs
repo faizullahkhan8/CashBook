@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+try { require('dotenv').config(); } catch (e) {}
 const path = require('path');
 const fs = require('fs');
 const db = require('./db.cjs');
@@ -19,11 +20,10 @@ let mainWindow;
 function publishChange(eventType, entity, shiftId) {
   try {
     const active = db.getActiveShift();
-    const isActiveShift = active && Number(active.id) === Number(shiftId ?? entity?.shift_id);
     sync.enqueue(eventType, {
       entity,
       shift: active,
-      summary: isActiveShift ? db.getShiftSummary(active.id) : undefined,
+      summary: active ? db.getShiftSummary(active.id) : undefined,
     });
   } catch (error) {
     logDebug(`CEO sync enqueue failed: ${error.message}`);
@@ -89,7 +89,7 @@ app.whenReady().then(async () => {
   }
 
   const syncConfig = sync.configure({
-    baseUrl: process.env.CEO_SERVER_URL,
+    baseUrl: process.env.CEO_SERVER_URL || 'https://cashbook-e9h7.onrender.com',
     dataDir,
     pharmacyId: process.env.CEO_PHARMACY_ID || 'zada-pharmacy',
     branchId: process.env.CEO_BRANCH_ID || 'main',

@@ -3,10 +3,16 @@
     "name": "Zada CEO",
     "slug": "zada-ceo",
     "version": "1.0.0",
-    "jsEngine": "jsc",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "android": { "package": "com.zadapharmacy.ceo" },
-    "ios": { "bundleIdentifier": "com.zadapharmacy.ceo" }
+    "android": {
+      "package": "com.zadapharmacy.ceo"
+    },
+    "ios": {
+      "bundleIdentifier": "com.zadapharmacy.ceo"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
   }
 }

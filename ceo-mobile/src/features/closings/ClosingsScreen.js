@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../core/api';
+import { createLiveSocket } from '../../core/socket';
 
 const money = (value) => `Rs ${Number(value || 0).toLocaleString()}`;
 
@@ -14,7 +15,14 @@ export function ClosingsScreen({ onOpen }) {
     catch (loadError) { setError(loadError.message); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const socket = createLiveSocket();
+    socket.on('v1.closing.created', () => load());
+    socket.on('v1.closing.updated', () => load());
+    socket.on('v1.closing.voided', () => load());
+    return () => socket.disconnect();
+  }, [load]);
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
   return (

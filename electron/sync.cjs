@@ -9,9 +9,20 @@ let retryTimer = null;
 let bootstrapTimer = null;
 let pendingBootstrap = null;
 
+function logSync(msg) {
+  try {
+    const debugPath = path.join(__dirname, '../debug_electron.log');
+    fs.appendFileSync(debugPath, `[${new Date().toISOString()}] [SYNC] ${msg}\n`);
+  } catch (_) {}
+}
+
 function configure({ baseUrl, dataDir, pharmacyId = 'zada-pharmacy', branchId = 'main' }) {
   options = { baseUrl: String(baseUrl || '').replace(/\/$/, ''), dataDir, pharmacyId, branchId };
-  if (!options.baseUrl) return { enabled: false };
+  if (!options.baseUrl) {
+    logSync('Sync configured with NO baseUrl - sync disabled');
+    return { enabled: false };
+  }
+  logSync(`Sync enabled for baseUrl=${options.baseUrl}, pharmacyId=${pharmacyId}, branchId=${branchId}`);
   loadQueue();
   schedule(1000);
   return { enabled: true, baseUrl: options.baseUrl };
@@ -32,15 +43,19 @@ function schedule(delay = 15000) {
 }
 
 function enqueue(eventType, payload) {
-  if (!options?.baseUrl) return { queued: false, disabled: true };
+  if (!options?.baseUrl) {
+    logSync(`Cannot enqueue ${eventType}: baseUrl is missing`);
+    return { queued: false, disabled: true };
+  }
   queue.push({ eventId: crypto.randomUUID(), eventType, eventVersion: 1, pharmacyId: options.pharmacyId, branchId: options.branchId, occurredAt: new Date().toISOString(), payload });
+  logSync(`Enqueued ${eventType} (queue length: ${queue.length})`);
   persist();
   flush().catch(() => {});
   return { queued: true };
 }
 
 async function post(route, body) {
-  const response = await fetch(`${options.baseUrl}${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+  const response = await fetch(`${options.baseUrl}${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error(`CEO sync failed (${response.status})`);
   return response.json();
 }
@@ -50,10 +65,14 @@ async function flush() {
   flushing = true;
   try {
     while (queue.length) {
-      await post('/api/v1/sync/events', queue[0]);
+      const item = queue[0];
+      await post('/api/v1/sync/events', item);
+      logSync(`Synced ${item.eventType} (${item.eventId}) successfully`);
       queue.shift();
       persist();
     }
+  } catch (err) {
+    logSync(`Flush error: ${err.message}`);
   } finally {
     flushing = false;
     if (queue.length) schedule();
