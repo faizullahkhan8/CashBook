@@ -14,7 +14,8 @@ import {
   Sun,
   Moon,
   Users,
-  Archive
+  Archive,
+  QrCode
 } from 'lucide-react';
 
 export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
@@ -71,6 +72,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
   const shortItemsDeduction = summary.totalShortItemsDeduction
     ?? ((summary.totalSpentOnShortItems || 0) + (summary.totalPendingShortItemsAmount || 0));
   const expectedDrawerCash = currentFloat + summary.cashInflow - shortItemsDeduction;
+  const grandTotal = expectedDrawerCash + summary.onlineCollections;
   const variance = countedCash - expectedDrawerCash;
   const isBalanced = Math.abs(variance) < 0.01;
   const isShortage = variance < -0.01;
@@ -245,9 +247,9 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-400 shadow-sm">
-          <div className="text-sm font-bold text-slate-500 uppercase tracking-wider">1. OPENING FLOAT</div>
+          <div className="text-sm font-bold text-slate-500 uppercase tracking-wider">1. OPENING CASH</div>
           <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-800 font-mono whitespace-nowrap">
             {settings.currency} {currentFloat.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
@@ -256,7 +258,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
 
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
           <div className="flex justify-between items-center">
-            <div className="text-sm font-bold text-emerald-700 uppercase tracking-wider">2. SALES INFLOW</div>
+            <div className="text-sm font-bold text-emerald-700 uppercase tracking-wider">2. TOTAL CASH</div>
             <Banknote className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="mt-3 text-2xl lg:text-3xl font-black text-emerald-800 font-mono whitespace-nowrap">
@@ -265,9 +267,21 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
           <p className="text-xs font-medium text-emerald-600 mt-1">{summary.cashCount} cash receipts</p>
         </div>
 
+        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-blue-500 shadow-sm">
+          <div className="flex justify-between items-center"><div className="text-sm font-bold text-blue-700 uppercase tracking-wider">3. TOTAL CARD</div><CreditCard className="w-4 h-4 text-blue-500" /></div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-blue-800 font-mono whitespace-nowrap">{settings.currency} {Number(summary.cardCollections || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+          <p className="text-xs font-medium text-blue-600 mt-1">{summary.cardCount || 0} card payments</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-violet-500 shadow-sm">
+          <div className="flex justify-between items-center"><div className="text-sm font-bold text-violet-700 uppercase tracking-wider">4. TOTAL QR CODE</div><QrCode className="w-4 h-4 text-violet-500" /></div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-violet-800 font-mono whitespace-nowrap">{settings.currency} {Number(summary.qrCollections || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+          <p className="text-xs font-medium text-violet-600 mt-1">{summary.qrCount || 0} QR payments</p>
+        </div>
+
         <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-rose-500 shadow-sm">
           <div className="flex justify-between items-center">
-            <div className="text-sm font-bold text-rose-700 uppercase tracking-wider">3. SHORT ITEMS</div>
+            <div className="text-sm font-bold text-rose-700 uppercase tracking-wider">5. TOTAL SHORT ITEMS</div>
             <Minus className="w-4 h-4 text-rose-500" />
           </div>
           <div className="mt-3 text-2xl lg:text-3xl font-black text-rose-800 font-mono whitespace-nowrap">
@@ -276,50 +290,31 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
           <p className="text-sm font-medium text-rose-600 mt-1">Cash utilized from drawer</p>
         </div>
 
-        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">4. Expected in Daraz</div>
-          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
+        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-indigo-500 shadow-sm">
+          <div className="flex justify-between items-center">
+            <div className="text-sm font-bold text-indigo-700 uppercase tracking-wider">6. TOTAL ONLINE</div>
+            <CreditCard className="w-4 h-4 text-indigo-500" />
+          </div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-indigo-800 font-mono whitespace-nowrap">
+            {settings.currency} {summary.onlineCollections.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <p className="text-sm font-medium text-indigo-600 mt-1">{summary.onlineCount} online payments</p>
+        </div>
+
+        <div className="bg-emerald-50 p-5 rounded-2xl border-y border-r border-emerald-200 border-l-4 border-l-teal-500 shadow-sm">
+          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">7. NET CASH</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-teal-800 font-mono whitespace-nowrap">
             {settings.currency} {expectedDrawerCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-sm font-bold text-red-500 mt-1">
-            Opening + Cash Sale - Short Items
-          </p>
+          <p className="text-xs font-bold text-teal-600 mt-1">Opening + Cash − Short Items</p>
         </div>
-        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">5. Opening + Cash Sales</div>
-          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
-            {settings.currency} {(currentFloat + summary.cashInflow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+
+        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 border-l-4 border-l-blue-400 shadow-sm">
+          <div className="text-sm font-bold text-blue-200 uppercase tracking-wider">8. GRAND TOTAL</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-white font-mono whitespace-nowrap">
+            {settings.currency} {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-sm font-bold text-red-500 mt-1">
-            Before Short Items Deduction
-          </p>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">6. Online Collections</div>
-          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
-            {settings.currency} {(summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </div>
-          <p className="text-[11px] font-bold text-slate-500 mt-1">
-            Online Collections
-          </p>
-        </div>
-        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">7. Grand Total</div>
-          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
-            {settings.currency} {(expectedDrawerCash + summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </div>
-          <p className="text-sm font-bold text-red-500 mt-1">
-            Opening + Cash Sale - Short Items + Online
-          </p>
-        </div>
-        <div className="bg-green-200 p-5 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-teal-500 shadow-sm">
-          <div className="text-sm font-bold text-teal-700 uppercase tracking-wider">8. Computer Sale</div>
-          <div className="mt-3 text-2xl lg:text-3xl font-black text-slate-900 font-mono whitespace-nowrap">
-            {settings.currency} {(summary.cashInflow + summary.onlineCollections).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </div>
-          <p className="text-sm font-bold text-red-500 mt-1">
-            Cash Sale + Online Collections
-          </p>
+          <p className="text-xs font-bold text-slate-300 mt-1">Net Cash + Total Online</p>
         </div>
       </div>
 
@@ -329,7 +324,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
         {/* Left Column (5/12) */}
         <div className="lg:col-span-5 space-y-6">
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+          {/* <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
             <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
               <CreditCard className="w-5 h-5 text-indigo-500" />
               <h3 className="text-sm font-black text-slate-800">Online / Card Payments</h3>
@@ -347,7 +342,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
                 <CreditCard className="w-6 h-6 text-indigo-400" />
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">

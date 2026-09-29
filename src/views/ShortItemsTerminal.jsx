@@ -27,6 +27,7 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
     refreshShortItems,
     showToast,
     setCurrentView,
+    confirmAction,
   } = useApp();
 
   const shortItemStaffList = useMemo(() => {
@@ -163,7 +164,13 @@ export default function ShortItemsTerminal({ onSwitchToList }) {
   };
 
   const handleDelete = async (item) => {
-    if (!window.confirm(`Delete short item of ${settings.currency} ${Number(item.amount).toLocaleString()} given to ${item.given_to}?`)) {
+    const confirmed = await confirmAction({
+      title: 'Delete Short Item?',
+      message: 'This short-item record will be permanently removed.',
+      details: `${item.given_to} · ${settings.currency} ${Number(item.amount).toLocaleString()}`,
+      confirmText: 'Delete Short Item',
+    });
+    if (!confirmed) {
       requestAnimationFrame(() => inputRef.current?.focus());
       return;
     }

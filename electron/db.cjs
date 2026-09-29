@@ -206,6 +206,7 @@ function migrateTables() {
   try { db.run("ALTER TABLE ledger_entries ADD COLUMN shift_type TEXT DEFAULT 'Day'"); } catch (e) {}
   try { db.run("ALTER TABLE ledger_entries ADD COLUMN employee_1 TEXT"); } catch (e) {}
   try { db.run("ALTER TABLE ledger_entries ADD COLUMN employee_2 TEXT"); } catch (e) {}
+  try { db.run("UPDATE ledger_entries SET payment_method = 'CARD' WHERE payment_method = 'ONLINE'"); } catch (e) {}
 
   // Ensure shift_closings has shift_type, employee_1, employee_2
   try { db.run("ALTER TABLE shift_closings ADD COLUMN shift_type TEXT DEFAULT 'Day'"); } catch (e) {}
@@ -409,7 +410,7 @@ function addLedgerEntry({ shift_id, invoice_number, customer_type, amount, payme
   const targetShiftId = shift_id || (active ? active.id : 1);
   const inv = invoice_number || getNextInvoiceNumber();
   const cType = customer_type || 'Walk-in Customer';
-  const method = payment_method === 'ONLINE' ? 'ONLINE' : 'CASH';
+  const method = payment_method === 'QR_CODE' ? 'QR_CODE' : (payment_method === 'CARD' || payment_method === 'ONLINE') ? 'CARD' : 'CASH';
   const sType = shift_type || active?.shift_type || 'Day';
   const e1 = employee_1 || active?.employee_1 || '';
   const e2 = employee_2 || active?.employee_2 || '';
@@ -433,7 +434,7 @@ function deleteLedgerEntry(id) {
   if (!entry) return null;
   run("DELETE FROM ledger_entries WHERE id = ?", [id]);
   recalculateClosingForShift(entry.shift_id);
-  return { success: true, deletedId: id, shift_id: entry.shift_id };
+  return { success: true, deletedId: id, shift_id: entry.shift_id, entity: entry };
 }
 
 function getRecentEntries(shiftId, limit = 50) {
@@ -548,11 +549,11 @@ function updateShortItem(id, data) {
 
 function deleteShortItem(id) {
   if (!db) throw new Error('Database not initialized');
-  const existing = queryOne("SELECT id, shift_id FROM short_items WHERE id = ?", [id]);
+  const existing = queryOne("SELECT * FROM short_items WHERE id = ?", [id]);
   if (!existing) throw new Error('Short item not found');
   run("DELETE FROM short_items WHERE id = ?", [id]);
   recalculateClosingForShift(existing.shift_id);
-  return { success: true };
+  return { success: true, shift_id: existing.shift_id, entity: existing };
 }
 
 function returnShortItem(id, data) {
@@ -601,16 +602,27 @@ function getShiftSummary(shiftId) {
   
   let cashInflow = 0;
   let onlineCollections = 0;
+  let cardCollections = 0;
+  let qrCollections = 0;
   let cashCount = 0;
   let onlineCount = 0;
+  let cardCount = 0;
+  let qrCount = 0;
 
   for (const e of entries) {
     const amt = Number(e.amount) || 0;
     if (e.payment_method === 'CASH') {
       cashInflow += amt;
       cashCount++;
-    } else {
+    } else if (e.payment_method === 'QR_CODE') {
+      qrCollections += amt;
       onlineCollections += amt;
+      qrCount++;
+      onlineCount++;
+    } else {
+      cardCollections += amt;
+      onlineCollections += amt;
+      cardCount++;
       onlineCount++;
     }
   }
@@ -645,8 +657,12 @@ function getShiftSummary(shiftId) {
     totalRevenue,
     cashInflow,
     onlineCollections,
+    cardCollections,
+    qrCollections,
     cashCount,
     onlineCount,
+    cardCount,
+    qrCount,
     totalCount,
     openingFloat,
     expectedDrawerCash,
@@ -875,13 +891,14 @@ function updateLedgerEntry(id, data) {
   if (!db) return null;
   const existing = queryOne("SELECT * FROM ledger_entries WHERE id = ?", [id]);
   if (!existing) return null;
+  const method = data.payment_method === 'QR_CODE' ? 'QR_CODE' : (data.payment_method === 'CARD' || data.payment_method === 'ONLINE') ? 'CARD' : 'CASH';
   run(`
     UPDATE ledger_entries 
     SET customer_type = ?, payment_method = ?, notes = ?, amount = ?
     WHERE id = ?
   `, [
     data.customer_type || 'Walk-in Customer',
-    data.payment_method || 'CASH',
+    method,
     data.notes || '',
     parseFloat(data.amount) || 0,
     id

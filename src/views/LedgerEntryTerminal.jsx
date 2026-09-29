@@ -11,7 +11,8 @@ import {
   Monitor,
   ArrowRight,
   Calculator,
-  FileText
+  FileText,
+  QrCode
 } from 'lucide-react';
 
 export default function LedgerEntryTerminal({ onSwitchToArchive }) {
@@ -24,6 +25,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
     deleteLedgerEntry,
     setCurrentView,
     settings,
+    confirmAction,
   } = useApp();
 
   const [amountStr, setAmountStr] = useState('');
@@ -50,8 +52,10 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
           inputRef.current?.focus();
           return;
         }
-        if (e.shiftKey) {
-          handleSubmitPayment('ONLINE');
+        if (e.ctrlKey || e.metaKey) {
+          handleSubmitPayment('QR_CODE');
+        } else if (e.shiftKey) {
+          handleSubmitPayment('CARD');
         } else {
           handleSubmitPayment('CASH');
         }
@@ -106,9 +110,12 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
   };
 
   const handleDeleteEntry = async (entry) => {
-    const shouldDelete = window.confirm(
-      `Delete receipt ${entry.invoice_number} for ${settings.currency} ${entry.amount}?`
-    );
+    const shouldDelete = await confirmAction({
+      title: 'Delete Ledger Entry?',
+      message: 'This entry will be permanently removed from the shift ledger.',
+      details: `${entry.invoice_number} · ${settings.currency} ${Number(entry.amount).toLocaleString()}`,
+      confirmText: 'Delete Entry',
+    });
 
     if (shouldDelete) {
       await deleteLedgerEntry(entry.id);
@@ -217,7 +224,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
           </div>
 
           {/* Large Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
             <button
               type="button"
               onClick={() => handleSubmitPayment('CASH')}
@@ -240,7 +247,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
 
             <button
               type="button"
-              onClick={() => handleSubmitPayment('ONLINE')}
+              onClick={() => handleSubmitPayment('CARD')}
               className="group relative h-20 rounded-2xl bg-gradient-to-br from-[#27325b] to-[#1d2646] hover:from-[#1f2849] hover:to-[#171e37] active:scale-[0.98] text-white shadow-xl shadow-[#27325b]/20 transition-all flex items-center justify-between px-6 border-b-4 border-[#12182c]"
             >
               <div className="flex items-center space-x-3.5">
@@ -248,13 +255,30 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
                   <CreditCard className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xl font-black tracking-tight">ONLINE</div>
-                  <div className="text-xs text-blue-200/90 font-medium">Card / Bank / QR</div>
+                  <div className="text-xl font-black tracking-tight">CARD</div>
+                  <div className="text-xs text-blue-200/90 font-medium">Debit / Credit Card</div>
                 </div>
               </div>
               <div className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-black/20 text-[11px] font-mono font-bold tracking-wider uppercase border border-white/10">
                 <span>Shift+Enter</span>
               </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSubmitPayment('QR_CODE')}
+              className="group relative h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-violet-700 hover:from-violet-600 hover:to-violet-800 active:scale-[0.98] text-white shadow-xl shadow-violet-600/20 transition-all flex items-center justify-between px-5 border-b-4 border-violet-900"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <QrCode className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="text-xl font-black tracking-tight">QR CODE</div>
+                  <div className="text-xs text-violet-100/90 font-medium">Scan Payment</div>
+                </div>
+              </div>
+              <div className="px-2 py-1.5 rounded-lg bg-black/20 text-[10px] font-mono font-bold uppercase border border-white/10">Ctrl+Enter</div>
             </button>
           </div>
         </div>
@@ -274,7 +298,8 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
           </div>
           <div className="flex space-x-3 text-[11px] font-bold">
             <span className="text-emerald-600 uppercase tracking-wider">{summary.cashCount} Cash</span>
-            <span className="text-indigo-600 uppercase tracking-wider">{summary.onlineCount} Online</span>
+            <span className="text-blue-600 uppercase tracking-wider">{summary.cardCount || 0} Card</span>
+            <span className="text-violet-600 uppercase tracking-wider">{summary.qrCount || 0} QR</span>
           </div>
         </div>
 
@@ -309,6 +334,7 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
             ) : (
               recentEntries.map((entry) => {
                 const isCash = entry.payment_method === 'CASH';
+                const isQr = entry.payment_method === 'QR_CODE';
                 const timeStr = formatDate(entry.timestamp);
 
                 return (
@@ -316,16 +342,16 @@ export default function LedgerEntryTerminal({ onSwitchToArchive }) {
                     key={entry.id}
                     className="group relative p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm hover:shadow-md flex items-center justify-between overflow-hidden"
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${isCash ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${isCash ? 'bg-emerald-500' : isQr ? 'bg-violet-500' : 'bg-blue-500'}`}></div>
 
                     <div className="min-w-0 flex-1 pl-2 pr-2">
                       <div className="flex items-center space-x-2.5">
                         <span className="font-mono font-bold text-xs text-slate-500">
                           {entry.invoice_number}
                         </span>
-                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${isCash ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${isCash ? 'bg-emerald-100 text-emerald-800' : isQr ? 'bg-violet-100 text-violet-800' : 'bg-blue-100 text-blue-800'
                           }`}>
-                          {entry.payment_method}
+                          {entry.payment_method === 'QR_CODE' ? 'QR CODE' : entry.payment_method}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-[11px] text-slate-500 font-medium mt-1 truncate">

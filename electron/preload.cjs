@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteShortItem: (id) => ipcRenderer.invoke('delete-short-item', id),
   returnShortItem: (id, data) => ipcRenderer.invoke('return-short-item', { id, data }),
   getShortItems: (shiftId) => ipcRenderer.invoke('get-short-items', shiftId),
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
 });

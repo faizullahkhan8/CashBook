@@ -22,6 +22,11 @@ function getBrowserStore() {
         store.settings.short_item_pharmacies = JSON.stringify(['Local Pharmacy', 'Medicine Market']);
         saveBrowserStore(store);
       }
+      if (Array.isArray(store.ledger_entries)) {
+        store.ledger_entries.forEach((entry) => {
+          if (entry.payment_method === 'ONLINE') entry.payment_method = 'CARD';
+        });
+      }
       return store;
     } catch {
       // fallback
@@ -82,7 +87,7 @@ function recalculateBrowserClosing(store, shiftId) {
   const entries = (store.ledger_entries || []).filter((entry) => entry.shift_id === shiftId);
   const items = (store.short_items || []).filter((item) => item.shift_id === shiftId);
   const cash = entries.filter((entry) => entry.payment_method === 'CASH').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const online = entries.filter((entry) => entry.payment_method === 'ONLINE').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const online = entries.filter((entry) => entry.payment_method === 'CARD' || entry.payment_method === 'QR_CODE' || entry.payment_method === 'ONLINE').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const shortDeduction = items.reduce((sum, item) => sum + (item.status === 'PENDING' ? Number(item.amount || 0) : Number(item.spent_amount || 0)), 0);
   closing.opening_float = Number(shift.opening_float || 0);
   closing.cash_sales = cash;
@@ -219,7 +224,7 @@ export const api = {
       invoice_number: inv,
       customer_type: data.customer_type || 'Walk-in Customer',
       amount: parseFloat(data.amount) || 0,
-      payment_method: data.payment_method === 'ONLINE' ? 'ONLINE' : 'CASH',
+      payment_method: data.payment_method === 'QR_CODE' ? 'QR_CODE' : (data.payment_method === 'CARD' || data.payment_method === 'ONLINE') ? 'CARD' : 'CASH',
       notes: data.notes || '',
       created_at: new Date().toISOString(),
     };
@@ -243,7 +248,7 @@ export const api = {
     const entry = store.ledger_entries.find((e) => e.id === id);
     if (entry) {
       if (data.customer_type) entry.customer_type = data.customer_type;
-      if (data.payment_method) entry.payment_method = data.payment_method;
+      if (data.payment_method) entry.payment_method = data.payment_method === 'QR_CODE' ? 'QR_CODE' : (data.payment_method === 'CARD' || data.payment_method === 'ONLINE') ? 'CARD' : 'CASH';
       if (data.notes !== undefined) entry.notes = data.notes;
       if (data.amount !== undefined) entry.amount = parseFloat(data.amount) || 0;
       recalculateBrowserClosing(store, entry.shift_id);
@@ -314,15 +319,26 @@ export const api = {
 
     let cashInflow = 0;
     let onlineCollections = 0;
+    let cardCollections = 0;
+    let qrCollections = 0;
     let cashCount = 0;
     let onlineCount = 0;
+    let cardCount = 0;
+    let qrCount = 0;
 
     for (const e of entries) {
       if (e.payment_method === 'CASH') {
-        cashInflow += e.amount;
+        cashInflow += Number(e.amount) || 0;
         cashCount++;
+      } else if (e.payment_method === 'QR_CODE') {
+        qrCollections += Number(e.amount) || 0;
+        onlineCollections += Number(e.amount) || 0;
+        qrCount++;
+        onlineCount++;
       } else {
-        onlineCollections += e.amount;
+        cardCollections += Number(e.amount) || 0;
+        onlineCollections += Number(e.amount) || 0;
+        cardCount++;
         onlineCount++;
       }
     }
@@ -359,8 +375,12 @@ export const api = {
       totalRevenue,
       cashInflow,
       onlineCollections,
+      cardCollections,
+      qrCollections,
       cashCount,
       onlineCount,
+      cardCount,
+      qrCount,
       totalCount,
       openingFloat,
       expectedDrawerCash,

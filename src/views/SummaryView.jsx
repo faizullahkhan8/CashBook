@@ -10,7 +10,8 @@ import {
   Calendar,
   CheckCircle2,
   TrendingUp,
-  FileText
+  FileText,
+  QrCode
 } from 'lucide-react';
 
 export default function SummaryView() {
@@ -18,6 +19,10 @@ export default function SummaryView() {
 
   const cashShareNum = parseFloat(summary.cashShare) || 0;
   const onlineShareNum = parseFloat(summary.onlineShare) || 0;
+  const shortItemsDeduction = summary.totalShortItemsDeduction
+    ?? ((summary.totalSpentOnShortItems || 0) + (summary.totalPendingShortItemsAmount || 0));
+  const netCash = (summary.openingFloat || 0) + summary.cashInflow - shortItemsDeduction;
+  const grandTotal = netCash + summary.onlineCollections;
 
   const isNight = activeShift?.shift_type === 'Night';
   const staffDisplay = activeShift?.employee_1 && activeShift?.employee_2
@@ -68,13 +73,13 @@ export default function SummaryView() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 2xl:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 2xl:gap-6">
         {/* Total Shift Revenue */}
         <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-800 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Total Shift Revenue
+                Grand Total
               </span>
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
                 <Receipt className="w-5 h-5" />
@@ -83,14 +88,31 @@ export default function SummaryView() {
             <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
               <span className="text-sm font-bold text-slate-400 shrink-0">{settings.currency}</span>
               <span className="text-2xl 2xl:text-3xl font-black text-slate-900 tracking-tight whitespace-nowrap">
-                {summary.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center text-sm text-emerald-600 font-bold space-x-1.5">
             <TrendingUp className="w-4 h-4" />
-            <span>{summary.totalCount} completed transactions</span>
+            <span>Net Cash + Online</span>
           </div>
+        </div>
+
+        {/* Opening Cash */}
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-400 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Opening Cash</span>
+              <Scale className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-slate-400 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-slate-800 tracking-tight whitespace-nowrap">
+                {Number(summary.openingFloat || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500 font-semibold">Starting drawer balance</div>
         </div>
 
         {/* Cash Inflow */}
@@ -98,7 +120,7 @@ export default function SummaryView() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                Cash in Hand
+                Total Cash
               </span>
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800">
                 Cash + Spent
@@ -118,11 +140,27 @@ export default function SummaryView() {
         </div>
 
         {/* Online Collections */}
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-blue-500 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-blue-700">Total Card</span><CreditCard className="w-5 h-5 text-blue-500" /></div>
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono"><span className="text-sm font-bold text-blue-500">{settings.currency}</span><span className="text-2xl 2xl:text-3xl font-black text-blue-800 whitespace-nowrap">{Number(summary.cardCollections || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500 font-semibold">{summary.cardCount || 0} card payments</div>
+        </div>
+
+        <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-violet-500 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-violet-700">Total QR Code</span><QrCode className="w-5 h-5 text-violet-500" /></div>
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono"><span className="text-sm font-bold text-violet-500">{settings.currency}</span><span className="text-2xl 2xl:text-3xl font-black text-violet-800 whitespace-nowrap">{Number(summary.qrCollections || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500 font-semibold">{summary.qrCount || 0} QR payments</div>
+        </div>
+
         <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-indigo-500 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                Online Collections
+                Total Online
               </span>
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-800">
                 CARDS/UPI
@@ -146,7 +184,7 @@ export default function SummaryView() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-rose-700">
-                Total Spend
+                Total Short Items
               </span>
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-rose-100 text-rose-800">
                 SHORT ITEMS
@@ -155,7 +193,7 @@ export default function SummaryView() {
             <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
               <span className="text-sm font-bold text-rose-500 shrink-0">{settings.currency}</span>
               <span className="text-2xl 2xl:text-3xl font-black text-rose-800 tracking-tight whitespace-nowrap">
-                {(summary.totalSpentOnShortItems || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {shortItemsDeduction.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -178,12 +216,12 @@ export default function SummaryView() {
             <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
               <span className="text-sm font-bold text-teal-600 shrink-0">{settings.currency}</span>
               <span className="text-2xl 2xl:text-3xl font-black text-teal-800 tracking-tight whitespace-nowrap">
-                {(summary.cashInflow - (summary.totalSpentOnShortItems || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {netCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500 font-semibold">
-            Drawer actual inflow
+            Opening + Cash − Short Items
           </div>
         </div>
       </div>

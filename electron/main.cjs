@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db.cjs');
+const sync = require('./sync.cjs');
+const EVENTS = require('../shared/event-names.js');
 
 const debugLogPath = path.join(__dirname, '../debug_electron.log');
 function logDebug(msg) {
@@ -13,6 +15,25 @@ function logDebug(msg) {
 logDebug('main.cjs loaded, process.argv: ' + JSON.stringify(process.argv));
 
 let mainWindow;
+
+function publishChange(eventType, entity, shiftId) {
+  try {
+    const active = db.getActiveShift();
+    const isActiveShift = active && Number(active.id) === Number(shiftId ?? entity?.shift_id);
+    sync.enqueue(eventType, {
+      entity,
+      shift: active,
+      summary: isActiveShift ? db.getShiftSummary(active.id) : undefined,
+    });
+  } catch (error) {
+    logDebug(`CEO sync enqueue failed: ${error.message}`);
+  }
+}
+
+function publishDashboard() {
+  const active = db.getActiveShift();
+  if (active) sync.enqueue(EVENTS.DASHBOARD_UPDATED, { shift: active, summary: db.getShiftSummary(active.id) });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -67,6 +88,24 @@ app.whenReady().then(async () => {
     console.error('Fatal DB Error:', err);
   }
 
+  const syncConfig = sync.configure({
+    baseUrl: process.env.CEO_SERVER_URL,
+    dataDir,
+    pharmacyId: process.env.CEO_PHARMACY_ID || 'zada-pharmacy',
+    branchId: process.env.CEO_BRANCH_ID || 'main',
+  });
+  logDebug('CEO sync configured: ' + JSON.stringify(syncConfig));
+  if (syncConfig.enabled) {
+    const active = db.getActiveShift();
+    sync.bootstrap({
+      ledgers: db.getAllLedgerEntries({}),
+      shortItems: db.getShortItems('ALL'),
+      closings: db.getAllClosings({}),
+      shift: active,
+      summary: active ? db.getShiftSummary(active.id) : {},
+    }).catch((error) => logDebug('CEO initial sync deferred: ' + error.message));
+  }
+
   // Register IPC handlers
   ipcMain.handle('get-active-shift', () => {
     logDebug('IPC get-active-shift');
@@ -75,7 +114,9 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('update-opening-float', (_, { shiftId, amount }) => {
     logDebug(`IPC update-opening-float: shiftId=${shiftId}, amount=${amount}`);
-    return db.updateOpeningFloat(shiftId, amount);
+    const result = db.updateOpeningFloat(shiftId, amount);
+    publishDashboard();
+    return result;
   });
 
   ipcMain.handle('get-next-invoice', () => {
@@ -87,6 +128,7 @@ app.whenReady().then(async () => {
     logDebug('IPC add-ledger-entry: ' + JSON.stringify(data));
     try {
       const res = db.addLedgerEntry(data);
+      publishChange(EVENTS.LEDGER_CREATED, res.entry, res.entry.shift_id);
       logDebug('IPC add-ledger-entry SUCCESS: ' + JSON.stringify(res));
       return res;
     } catch (err) {
@@ -97,12 +139,16 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('delete-ledger-entry', (_, id) => {
     logDebug('IPC delete-ledger-entry: ' + id);
-    return db.deleteLedgerEntry(id);
+    const result = db.deleteLedgerEntry(id);
+    if (result) publishChange(EVENTS.LEDGER_DELETED, result.entity, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('update-ledger-entry', (_, { id, data }) => {
     logDebug('IPC update-ledger-entry: ' + id);
-    return db.updateLedgerEntry(id, data);
+    const result = db.updateLedgerEntry(id, data);
+    if (result) publishChange(EVENTS.LEDGER_UPDATED, result, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('get-recent-entries', (_, { shiftId, limit }) => {
@@ -124,6 +170,8 @@ app.whenReady().then(async () => {
     logDebug('IPC save-shift-closing: ' + JSON.stringify(data));
     try {
       const res = db.saveShiftClosing(data);
+      publishChange(EVENTS.CLOSING_CREATED, res.closing, res.closing.shift_id);
+      publishDashboard();
       logDebug('IPC save-shift-closing SUCCESS: ' + JSON.stringify(res));
       return res;
     } catch (err) {
@@ -134,7 +182,9 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('update-shift-staff', (_, data) => {
     logDebug('IPC update-shift-staff: ' + JSON.stringify(data));
-    return db.updateActiveShiftStaff(data);
+    const result = db.updateActiveShiftStaff(data);
+    publishDashboard();
+    return result;
   });
 
   ipcMain.handle('get-all-employees', () => {
@@ -159,22 +209,30 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('add-short-item', (_, data) => {
     logDebug('IPC add-short-item: ' + JSON.stringify(data));
-    return db.addShortItem(data);
+    const result = db.addShortItem(data);
+    publishChange(EVENTS.SHORT_ITEM_CREATED, result, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('update-short-item', (_, { id, data }) => {
     logDebug('IPC update-short-item: ' + id);
-    return db.updateShortItem(id, data);
+    const result = db.updateShortItem(id, data);
+    publishChange(EVENTS.SHORT_ITEM_UPDATED, result, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('delete-short-item', (_, id) => {
     logDebug('IPC delete-short-item: ' + id);
-    return db.deleteShortItem(id);
+    const result = db.deleteShortItem(id);
+    publishChange(EVENTS.SHORT_ITEM_DELETED, result.entity, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('return-short-item', (_, { id, data }) => {
     logDebug('IPC return-short-item: ' + id);
-    return db.returnShortItem(id, data);
+    const result = db.returnShortItem(id, data);
+    publishChange(EVENTS.SHORT_ITEM_UPDATED, result, result.shift_id);
+    return result;
   });
 
   ipcMain.handle('get-short-items', (_, shiftId) => {
@@ -183,8 +241,17 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('get-closing-by-id', (_, id) => db.getClosingById(id));
-  ipcMain.handle('update-shift-closing', (_, { id, data }) => db.updateShiftClosing(id, data));
-  ipcMain.handle('void-shift-closing', (_, { id, reason }) => db.voidShiftClosing(id, reason));
+  ipcMain.handle('update-shift-closing', (_, { id, data }) => {
+    const result = db.updateShiftClosing(id, data);
+    publishChange(EVENTS.CLOSING_UPDATED, result, result.shift_id);
+    return result;
+  });
+  ipcMain.handle('void-shift-closing', (_, { id, reason }) => {
+    const result = db.voidShiftClosing(id, reason);
+    publishChange(EVENTS.CLOSING_VOIDED, result, result.shift_id);
+    return result;
+  });
+  ipcMain.handle('get-sync-status', () => sync.status());
   ipcMain.handle('get-settings', () => db.getSettings());
   ipcMain.handle('update-settings', (_, settings) => db.updateSettings(settings));
   ipcMain.handle('print-slip', async () => {

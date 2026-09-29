@@ -19,7 +19,7 @@ import ReceiptModal from '../components/ReceiptModal';
 import EditLedgerModal from '../components/EditLedgerModal';
 
 export default function AllLedgersView({ onSwitchToEntry }) {
-  const { settings, deleteLedgerEntry, recentEntries, setCurrentView, refreshData } = useApp();
+  const { settings, deleteLedgerEntry, recentEntries, setCurrentView, refreshData, confirmAction } = useApp();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -81,11 +81,17 @@ export default function AllLedgersView({ onSwitchToEntry }) {
 
   const totalEntries = ledgers.length;
   const totalCash = ledgers.filter((l) => l.payment_method === 'CASH').reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
-  const totalOnline = ledgers.filter((l) => l.payment_method === 'ONLINE').reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+  const totalOnline = ledgers.filter((l) => l.payment_method === 'CARD' || l.payment_method === 'QR_CODE' || l.payment_method === 'ONLINE').reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
   const totalRevenue = totalCash + totalOnline;
 
   const handleDelete = async (id, inv) => {
-    if (window.confirm(`Are you sure you want to void / delete ledger entry ${inv}?`)) {
+    const confirmed = await confirmAction({
+      title: 'Delete Ledger Entry?',
+      message: 'This transaction will be permanently removed and linked closing totals will be recalculated.',
+      details: inv,
+      confirmText: 'Delete Entry',
+    });
+    if (confirmed) {
       await deleteLedgerEntry(id);
       loadLedgers();
     }
@@ -226,9 +232,9 @@ export default function AllLedgersView({ onSwitchToEntry }) {
             </div>
 
             <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold shadow-inner">
-              {['ALL', 'CASH', 'ONLINE'].map((m) => (
+              {['ALL', 'CASH', 'CARD', 'QR_CODE'].map((m) => (
                 <button key={m} onClick={() => setMethodFilter(m)} className={`px-4 py-1.5 rounded-lg transition-all ${methodFilter === m ? (m === 'CASH' ? 'bg-white text-emerald-700 shadow-sm' : m === 'ONLINE' ? 'bg-white text-indigo-700 shadow-sm' : 'bg-white text-slate-800 shadow-sm') : 'text-slate-500 hover:text-slate-700'}`}>
-                  {m === 'ALL' ? 'All Methods' : m}
+                  {m === 'ALL' ? 'All Methods' : m === 'QR_CODE' ? 'QR Code' : m}
                 </button>
               ))}
             </div>

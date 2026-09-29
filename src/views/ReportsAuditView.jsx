@@ -36,6 +36,7 @@ export default function ReportsAuditView() {
     saveStaffSetup,
     theme,
     setTheme,
+    confirmAction,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState('shift-roster'); // 'shift-roster' | 'short-staff' | 'backups' | 'theme'
@@ -143,9 +144,13 @@ export default function ReportsAuditView() {
   };
 
   const handleDeleteShortStaff = async (nameToDelete) => {
-    if (!window.confirm(`Are you sure you want to remove "${nameToDelete}" from the Short Items Staff list?`)) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: 'Remove Staff Member?',
+      message: 'This person will be removed from the Short Items staff dropdown.',
+      details: nameToDelete,
+      confirmText: 'Remove Staff',
+    });
+    if (!confirmed) return;
     const updated = shortStaffList.filter((s) => s !== nameToDelete);
     try {
       await updateSettings({ short_items_staff: JSON.stringify(updated) });
@@ -193,7 +198,13 @@ export default function ReportsAuditView() {
   };
 
   const handleResetShortStaffDefaults = async () => {
-    if (!window.confirm('Reset Short Items Staff list to default recommendations?')) return;
+    const confirmed = await confirmAction({
+      title: 'Reset Staff Defaults?',
+      message: 'Your current Short Items staff list will be replaced by the default recommendations.',
+      confirmText: 'Reset Defaults',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     const defaults = ['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)'];
     try {
       await updateSettings({ short_items_staff: JSON.stringify(defaults) });
@@ -217,18 +228,26 @@ export default function ReportsAuditView() {
   };
 
   const handleDeletePharmacy = async (name) => {
-    if (!window.confirm(`Remove "${name}" from the Short Item pharmacy dropdown?`)) return;
+    const confirmed = await confirmAction({
+      title: 'Remove Pharmacy?',
+      message: 'This pharmacy will be removed from the Short Item return dropdown.',
+      details: name,
+      confirmText: 'Remove Pharmacy',
+    });
+    if (!confirmed) return;
     await updateSettings({ short_item_pharmacies: JSON.stringify(pharmacyList.filter((item) => item !== name)) });
     showToast(`Removed "${name}" from pharmacy dropdown`, 'info');
   };
 
   const handleRestore = async (filename) => {
-    if (
-      !window.confirm(
-        `CRITICAL WARNING: Are you sure you want to restore the backup "${filename}"?\n\nThis will completely overwrite your current database. Any transactions made since this backup will be permanently lost.`
-      )
-    )
-      return;
+    const confirmed = await confirmAction({
+      title: 'Restore Database Backup?',
+      message: 'This will overwrite the current database. Transactions created after this backup will be lost.',
+      details: filename,
+      confirmText: 'Restore Backup',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
 
     try {
       const res = await api.restoreBackup(filename);

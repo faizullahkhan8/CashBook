@@ -27,6 +27,7 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
     refreshShortItems,
     showToast,
     activeShift,
+    confirmAction,
   } = useApp();
 
   const [items, setItems] = useState([]);
@@ -120,7 +121,13 @@ export default function AllShortItemsList({ onSwitchToTerminal }) {
   };
 
   const handleDelete = async (item) => {
-    if (!window.confirm(`Delete short item #${String(item.id).padStart(4, '0')} permanently?`)) return;
+    const confirmed = await confirmAction({
+      title: 'Delete Short Item?',
+      message: 'This record will be permanently removed and linked closing totals will be recalculated.',
+      details: `#${String(item.id).padStart(4, '0')} · ${item.given_to} · ${settings.currency} ${Number(item.amount).toLocaleString()}`,
+      confirmText: 'Delete Short Item',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteShortItem(item.id);
       showToast('Short item deleted successfully', 'info');

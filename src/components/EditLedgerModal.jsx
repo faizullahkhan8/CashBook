@@ -66,7 +66,8 @@ export default function EditLedgerModal({ entry, onClose, onSave }) {
                 className="w-full h-11 px-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               >
                 <option value="CASH">CASH</option>
-                <option value="ONLINE">ONLINE</option>
+                <option value="CARD">CARD</option>
+                <option value="QR_CODE">QR CODE</option>
               </select>
             </div>
             <div>

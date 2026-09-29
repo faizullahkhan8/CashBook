@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function AllClosingsView({ onSwitchToClosing }) {
-  const { allClosings, settings, setCurrentView, updateClosing, voidClosing, openClosingDetails, openSlip } = useApp();
+  const { allClosings, settings, setCurrentView, updateClosing, voidClosing, openClosingDetails, openSlip, confirmAction } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('ALL'); 
   const [shiftFilter, setShiftFilter] = useState('ALL'); 
@@ -67,11 +67,17 @@ export default function AllClosingsView({ onSwitchToClosing }) {
   };
 
   const handleVoid = async (closing) => {
-    const reason = window.prompt(`Reason for voiding ${closing.closing_code}:`);
+    const reason = await confirmAction({
+      title: 'Mark Closing as VOID?',
+      message: 'The closing will be excluded from totals. Its ledgers and short items will remain preserved.',
+      details: closing.closing_code,
+      confirmText: 'Mark as VOID',
+      requireInput: true,
+      inputLabel: 'Void Reason',
+      inputPlaceholder: 'Explain why this closing is being voided...',
+    });
     if (reason === null) return;
-    if (!reason.trim()) return;
-    if (!window.confirm(`Mark ${closing.closing_code} as VOID? Its ledgers and short items will remain preserved.`)) return;
-    await voidClosing(closing.id, reason.trim());
+    await voidClosing(closing.id, reason);
   };
 
   const hasActiveFilters = searchQuery || filterTab !== 'ALL' || shiftFilter !== 'ALL';

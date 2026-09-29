@@ -12,6 +12,7 @@ import ReportsAuditView from './views/ReportsAuditView';
 import ClosingDetailsView from './views/ClosingDetailsView';
 import SlipModal from './components/SlipModal';
 import ShiftStaffModal from './components/ShiftStaffModal';
+import ConfirmationModal from './components/ConfirmationModal';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function App() {
@@ -23,6 +24,8 @@ export default function App() {
     isStaffModalOpen,
     setIsStaffModalOpen,
     notification,
+    confirmationDialog,
+    respondToConfirmation,
   } = useApp();
 
   const titles = {
@@ -74,6 +77,8 @@ export default function App() {
         isOpen={isStaffModalOpen}
         onClose={() => setIsStaffModalOpen(false)}
       />
+
+      <ConfirmationModal dialog={confirmationDialog} onRespond={respondToConfirmation} />
 
       {/* Notification Toast */}
       {notification && (

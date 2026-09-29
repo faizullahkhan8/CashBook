@@ -10,8 +10,12 @@ export function AppProvider({ children }) {
     totalRevenue: 0,
     cashInflow: 0,
     onlineCollections: 0,
+    cardCollections: 0,
+    qrCollections: 0,
     cashCount: 0,
     onlineCount: 0,
+    cardCount: 0,
+    qrCount: 0,
     totalCount: 0,
     openingFloat: 0,
     expectedDrawerCash: 0,
@@ -43,6 +47,20 @@ export function AppProvider({ children }) {
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [confirmationDialog, setConfirmationDialog] = useState(null);
+
+  const confirmAction = useCallback((options) => new Promise((resolve) => {
+    setConfirmationDialog({ ...options, resolve });
+  }), []);
+
+  const respondToConfirmation = useCallback((confirmed, inputValue = '') => {
+    setConfirmationDialog((current) => {
+      if (current?.resolve) {
+        current.resolve(current.requireInput ? (confirmed ? inputValue : null) : confirmed);
+      }
+      return null;
+    });
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setNotification({ message, type, id: Date.now() });
@@ -354,6 +372,7 @@ export function AppProvider({ children }) {
         nextInvoice,
         settings,
         notification,
+        confirmationDialog,
         selectedClosingForSlip,
         selectedClosingForDetails,
         isSlipModalOpen,
@@ -378,6 +397,8 @@ export function AppProvider({ children }) {
         refreshData,
         refreshShortItems,
         showToast,
+        confirmAction,
+        respondToConfirmation,
       }}
     >
       {children}
