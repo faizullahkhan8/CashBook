@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import { DashboardSnapshot } from './dashboard.model.js';
 
 const require = createRequire(import.meta.url);
-const { normalizeDashboard } = require('../../../../shared/calculations.js');
+const { normalizeDashboard } = require('../../core/contracts/calculations.cjs');
 
 export async function saveDashboardSnapshot(scope, summary = {}, shift = {}) {
   const metrics = normalizeDashboard(summary);
