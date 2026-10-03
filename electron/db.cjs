@@ -208,6 +208,46 @@ function migrateTables() {
   try { db.run("ALTER TABLE ledger_entries ADD COLUMN employee_2 TEXT"); } catch (e) {}
   try { db.run("UPDATE ledger_entries SET payment_method = 'CARD' WHERE payment_method = 'ONLINE'"); } catch (e) {}
 
+  // Drop old CHECK constraint on payment_method (CASH/ONLINE only) so CARD and QR_CODE are allowed.
+  // SQLite doesn't support DROP CONSTRAINT, so we detect it and rebuild the table.
+  try {
+    const tableInfo = queryOne(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='ledger_entries'"
+    );
+    if (tableInfo && tableInfo.sql && tableInfo.sql.includes('CHECK')) {
+      console.log('[DB] Migrating ledger_entries: removing old CHECK constraint on payment_method...');
+      db.run('BEGIN');
+      try {
+        db.run(`CREATE TABLE ledger_entries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shift_id INTEGER NOT NULL,
+          invoice_number TEXT NOT NULL,
+          customer_type TEXT DEFAULT 'Walk-in Customer',
+          amount REAL NOT NULL,
+          payment_method TEXT NOT NULL,
+          notes TEXT,
+          shift_type TEXT DEFAULT 'Day',
+          employee_1 TEXT,
+          employee_2 TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+        db.run(`INSERT INTO ledger_entries_new
+          (id, shift_id, invoice_number, customer_type, amount, payment_method, notes, shift_type, employee_1, employee_2, created_at)
+          SELECT id, shift_id, invoice_number, customer_type, amount, payment_method, notes, shift_type, employee_1, employee_2, created_at
+          FROM ledger_entries`);
+        db.run('DROP TABLE ledger_entries');
+        db.run('ALTER TABLE ledger_entries_new RENAME TO ledger_entries');
+        db.run('COMMIT');
+        console.log('[DB] ledger_entries migrated successfully — CHECK constraint removed.');
+      } catch (innerErr) {
+        db.run('ROLLBACK');
+        console.error('[DB] Migration of ledger_entries failed, rolled back:', innerErr.message);
+      }
+    }
+  } catch (e) {
+    console.warn('[DB] Could not inspect ledger_entries schema:', e.message);
+  }
+
   // Ensure shift_closings has shift_type, employee_1, employee_2
   try { db.run("ALTER TABLE shift_closings ADD COLUMN shift_type TEXT DEFAULT 'Day'"); } catch (e) {}
   try { db.run("ALTER TABLE shift_closings ADD COLUMN employee_1 TEXT"); } catch (e) {}
