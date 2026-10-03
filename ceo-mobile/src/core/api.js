@@ -11,4 +11,6 @@ export const api = {
   dashboard: () => get('/api/v1/dashboard'),
   closings: () => get('/api/v1/closings?limit=100'),
   closing: (id) => get(`/api/v1/closings/${encodeURIComponent(id)}`),
+  supplierBills: (query = '') => get(`/api/v1/suppliers/bills${query ? `?${query}` : ''}`),
+  supplierDaily: (query = '') => get(`/api/v1/suppliers/daily${query ? `?${query}` : ''}`),
 };

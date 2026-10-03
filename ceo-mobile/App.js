@@ -3,6 +3,7 @@ import { SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } fro
 import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
 import { ClosingsScreen } from './src/features/closings/ClosingsScreen';
 import { ClosingDetailsScreen } from './src/features/closings/ClosingDetailsScreen';
+import { SupplierReportsScreen } from './src/features/suppliers/SupplierReportsScreen';
 
 export default function App() {
   const [screen, setScreen] = useState('dashboard');
@@ -14,11 +15,13 @@ export default function App() {
       <StatusBar barStyle="light-content" />
       {screen === 'dashboard' && <DashboardScreen />}
       {screen === 'closings' && <ClosingsScreen onOpen={openClosing} />}
+      {screen === 'suppliers' && <SupplierReportsScreen />}
       {screen === 'closing-details' && <ClosingDetailsScreen closing={selectedClosing} onBack={() => setScreen('closings')} />}
       {screen !== 'closing-details' && (
         <View style={styles.tabs}>
           <Tab active={screen === 'dashboard'} label="Live Summary" onPress={() => setScreen('dashboard')} />
           <Tab active={screen === 'closings'} label="Past Closings" onPress={() => setScreen('closings')} />
+          <Tab active={screen === 'suppliers'} label="Supplier Bills" onPress={() => setScreen('suppliers')} />
         </View>
       )}
     </SafeAreaView>

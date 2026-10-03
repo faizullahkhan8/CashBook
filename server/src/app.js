@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import closingRoutes from './modules/closings/closing.routes.js';
 import syncRoutes from './modules/sync/sync.routes.js';
+import supplierRoutes from './modules/suppliers/supplier.routes.js';
 import { optionalAuth } from './core/middleware/optional-auth.js';
 import { connectDatabase } from './core/database/connect.js';
 
@@ -34,6 +35,7 @@ export function createApp() {
   app.use('/api/v1/dashboard', dashboardRoutes);
   app.use('/api/v1/closings', closingRoutes);
   app.use('/api/v1/sync', syncRoutes);
+  app.use('/api/v1/suppliers', supplierRoutes);
   app.use((error, req, res, next) => {
     console.error(error);
     res.status(error?.name === 'ZodError' ? 400 : 500).json({ message: error.message || 'Server error' });

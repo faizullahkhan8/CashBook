@@ -1,0 +1,13 @@
+const { app, BrowserWindow, ipcMain } = require('electron'); const path=require('path'); const fs=require('fs'); const db=require('./db.cjs');
+const baseUrl=process.env.CEO_SERVER_URL||'https://cashbook-e9h7.onrender.com'; let outbox=[]; let outboxFile;
+function persist(){fs.writeFileSync(outboxFile,JSON.stringify(outbox))} async function send(job){const r=await fetch(baseUrl+job.path,{method:job.method,headers:{'content-type':'application/json'},body:job.body?JSON.stringify({...job.body,pharmacyId:'zada-pharmacy',branchId:'main'}):undefined});if(!r.ok)throw new Error(await r.text());}
+async function flush(){while(outbox.length){try{await send(outbox[0]);outbox.shift();persist()}catch{return}}} function queue(path,method,body){outbox.push({path,method,body});persist();flush();}
+function payload(b){return {syncId:b.sync_id,postingDate:b.posting_date,billDate:b.bill_date,supplierName:b.supplier_name,supplierBillNo:b.supplier_bill_no,voucherNo:b.voucher_no,totalBillAmount:b.total_bill_amount,taxPercent:b.tax_percent,category:b.category,remarks:b.remarks};}
+app.whenReady().then(async()=>{const dir=app.getPath('userData');outboxFile=path.join(dir,'supplier-sync-outbox.json');try{outbox=JSON.parse(fs.readFileSync(outboxFile,'utf8'))}catch{outbox=[]}await db.init(dir);setInterval(flush,15000);flush();
+ ipcMain.handle('supplier:list',(_,f)=>db.list(f)); ipcMain.handle('supplier:names',()=>db.names());
+ ipcMain.handle('supplier:save-bill',(_,x)=>{const b=db.saveBill(x);queue('/api/v1/suppliers/bills','POST',payload(b));return b});
+ ipcMain.handle('supplier:delete-bill',(_,id)=>{const b=db.deleteBill(id);queue(`/api/v1/suppliers/bills/${id}?pharmacyId=zada-pharmacy&branchId=main`,'DELETE');return b});
+ ipcMain.handle('supplier:add-payment',(_,x)=>{const p=db.addPayment(x);queue('/api/v1/suppliers/payments','POST',{syncId:p.sync_id,billSyncId:p.bill_sync_id,paymentDate:p.payment_date,amount:p.amount,paymentMode:p.payment_mode,referenceNo:p.reference_no,remarks:p.remarks});return p});
+ ipcMain.handle('supplier:delete-payment',(_,id)=>{const p=db.deletePayment(id);queue(`/api/v1/suppliers/payments/${id}?pharmacyId=zada-pharmacy&branchId=main`,'DELETE');return p});
+ const win=new BrowserWindow({width:1450,height:900,minWidth:1050,minHeight:700,backgroundColor:'#07101f',title:'Zada Supplier Reconciliation',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false}}); const dist=path.join(__dirname,'../dist/index.html'); if(fs.existsSync(dist))win.loadFile(dist);else win.loadURL('http://localhost:5174');});
+app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
