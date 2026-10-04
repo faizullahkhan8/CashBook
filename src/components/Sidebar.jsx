@@ -13,11 +13,25 @@ import {
   ShoppingCart,
   Sun,
   Moon,
-  Code2
+  Code2,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const { currentView, setCurrentView, allClosings, summary, activeShift, setIsStaffModalOpen, theme, toggleTheme } = useApp();
+  const {
+    currentView,
+    setCurrentView,
+    allClosings,
+    summary,
+    activeShift,
+    setIsStaffModalOpen,
+    theme,
+    toggleTheme,
+    currentUser,
+    setIsUsersModalOpen,
+    logout,
+  } = useApp();
 
   const navItems = [
     {
@@ -219,6 +233,51 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
+
+      {/* Logged in User Card */}
+      {currentUser && (
+        <div className="mx-4 mb-3 p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs flex-shrink-0">
+                {currentUser.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-slate-200 truncate">{currentUser.full_name}</div>
+                <div className="text-[10px] text-slate-500 truncate">@{currentUser.username}</div>
+              </div>
+            </div>
+            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+              currentUser.role === 'admin' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+            }`}>
+              {currentUser.role}
+            </span>
+          </div>
+
+          <div className="flex gap-1.5 pt-2 border-t border-slate-800/80">
+            {currentUser.role === 'admin' && (
+              <button
+                type="button"
+                onClick={() => setIsUsersModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition-colors"
+                title="Manage Staff & Cashiers"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Staff</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-bold transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Developer Credits Card */}
       <div className="mx-4 mb-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800/80 select-none">

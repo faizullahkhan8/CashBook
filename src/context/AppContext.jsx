@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../api';
+import { api, getSavedUser } from '../api';
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(() => getSavedUser());
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState('ledger');
   const [activeShift, setActiveShift] = useState(null);
   const [summary, setSummary] = useState({
@@ -108,9 +110,26 @@ export function AppProvider({ children }) {
     if (closings) setAllClosings(closings);
   };
 
+  const logout = () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      api.auth.logout();
+      setCurrentUser(null);
+    }
+  };
+
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    function onExpired() {
+      setCurrentUser(null);
+    }
+    window.addEventListener('pos:auth:expired', onExpired);
+    return () => window.removeEventListener('pos:auth:expired', onExpired);
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      refreshData();
+    }
+  }, [currentUser, refreshData]);
 
   const switchShift = async (targetShiftType) => {
     try {
@@ -361,6 +380,11 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider
       value={{
+        currentUser,
+        setCurrentUser,
+        isUsersModalOpen,
+        setIsUsersModalOpen,
+        logout,
         currentView,
         setCurrentView,
         activeShift,

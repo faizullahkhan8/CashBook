@@ -1,529 +1,396 @@
-// API layer: seamlessly communicates via window.electronAPI when inside Electron,
-// or uses persistent localStorage-based mock SQLite when running standalone in browser.
+// API layer for Zada Pharmacy POS Cash Counter
+// Communicates with Hostinger MySQL PHP API via REST + JWT tokens,
+// and gracefully supports Electron native IPC when running inside desktop Electron.
 
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
-// Mock persistent browser store for web preview
-const STORAGE_KEY = 'zada_pharmacy_db_v2';
-function getBrowserStore() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      const store = JSON.parse(raw);
-      if (store.settings && !store.settings.short_items_staff) {
-        store.settings.short_items_staff = JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)']);
-        saveBrowserStore(store);
-      }
-      if (store.settings && !store.settings.theme) {
-        store.settings.theme = 'light';
-        saveBrowserStore(store);
-      }
-      if (store.settings && !store.settings.short_item_pharmacies) {
-        store.settings.short_item_pharmacies = JSON.stringify(['Local Pharmacy', 'Medicine Market']);
-        saveBrowserStore(store);
-      }
-      if (Array.isArray(store.ledger_entries)) {
-        store.ledger_entries.forEach((entry) => {
-          if (entry.payment_method === 'ONLINE') entry.payment_method = 'CARD';
-        });
-      }
-      return store;
-    } catch {
-      // fallback
-    }
+function getToken() {
+  return localStorage.getItem('pos_token');
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem('pos_token', token);
+  else localStorage.removeItem('pos_token');
+}
+
+export function getSavedUser() {
+  try {
+    const raw = localStorage.getItem('pos_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
-  const initial = {
-    settings: {
-      pharmacy_name: 'ZADA PHARMACY — POS CASH COUNTER & CLOSINGS',
-      register_station: 'Register 01',
-      currency: 'PKR',
-      active_shift_type: 'Day',
-      day_employee_1: 'Muhammad Ali',
-      day_employee_2: 'Usman Tariq',
-      night_employee_1: 'Hamza Khan',
-      night_employee_2: 'Bilal Ahmed',
-      short_items_staff: JSON.stringify(['Ali (Runner)', 'Kamran (Rider)', 'Zeeshan (Purchase)']),
-      short_item_pharmacies: JSON.stringify(['Local Pharmacy', 'Medicine Market']),
-      theme: 'light',
-    },
-    employees: [
-      { id: 1, name: 'Muhammad Ali', assigned_shift: 'Day', role: 'Senior Cashier' },
-      { id: 2, name: 'Usman Tariq', assigned_shift: 'Day', role: 'Counter Staff' },
-      { id: 3, name: 'Hamza Khan', assigned_shift: 'Night', role: 'Night Pharmacist' },
-      { id: 4, name: 'Bilal Ahmed', assigned_shift: 'Night', role: 'Night Cashier' },
-    ],
-    shifts: [
-      {
-        id: 1,
-        shift_code: 'SHF-20260920-DAY-01',
-        register_station: 'Register 01',
-        cashier_name: 'Muhammad Ali & Usman Tariq',
-        shift_type: 'Day',
-        employee_1: 'Muhammad Ali',
-        employee_2: 'Usman Tariq',
-        opening_float: 0.0,
-        opened_at: new Date().toISOString(),
-        closed_at: null,
-        status: 'OPEN',
-      },
-    ],
-    ledger_entries: [],
-    shift_closings: [],
-    short_items: [],
-    nextInvoiceId: 38,
+}
+
+export function setSavedUser(user) {
+  if (user) localStorage.setItem('pos_user', JSON.stringify(user));
+  else localStorage.removeItem('pos_user');
+}
+
+async function request(endpoint, options = {}) {
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  return initial;
-}
 
-function saveBrowserStore(store) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-function recalculateBrowserClosing(store, shiftId) {
-  const closing = (store.shift_closings || []).find((c) => c.shift_id === shiftId && !c.is_void);
-  const shift = (store.shifts || []).find((s) => s.id === shiftId);
-  if (!closing || !shift) return closing;
-  const entries = (store.ledger_entries || []).filter((entry) => entry.shift_id === shiftId);
-  const items = (store.short_items || []).filter((item) => item.shift_id === shiftId);
-  const cash = entries.filter((entry) => entry.payment_method === 'CASH').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const online = entries.filter((entry) => entry.payment_method === 'CARD' || entry.payment_method === 'QR_CODE' || entry.payment_method === 'ONLINE').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const shortDeduction = items.reduce((sum, item) => sum + (item.status === 'PENDING' ? Number(item.amount || 0) : Number(item.spent_amount || 0)), 0);
-  closing.opening_float = Number(shift.opening_float || 0);
-  closing.cash_sales = cash;
-  closing.online_sales = online;
-  closing.total_revenue = cash + online;
-  closing.expected_drawer_cash = closing.opening_float + cash - shortDeduction;
-  closing.variance = Number(closing.counted_cash || 0) - closing.expected_drawer_cash;
-  closing.status = Math.abs(closing.variance) < 0.01 ? 'Balanced' : closing.variance < 0 ? 'Shortage' : 'Overage';
-  closing.updated_at = new Date().toISOString();
-  return closing;
+  const url = `${BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401) {
+    setToken(null);
+    setSavedUser(null);
+    window.dispatchEvent(new CustomEvent('pos:auth:expired'));
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed with status ${response.status}`);
+  }
+
+  return data;
 }
 
 export const api = {
   isElectron,
 
+  // --- AUTHENTICATION & USERS ---
+  auth: {
+    login: async (username, password) => {
+      const res = await request('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+      setToken(res.token);
+      setSavedUser(res.user);
+      return res;
+    },
+    me: async () => {
+      return request('/api/auth/me');
+    },
+    logout: () => {
+      setToken(null);
+      setSavedUser(null);
+    },
+    getUsers: async () => {
+      return request('/api/auth/users');
+    },
+    createUser: async (userData) => {
+      return request('/api/auth/users', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+    },
+    toggleStatus: async (userId, status) => {
+      return request(`/api/auth/users/${userId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    changePassword: async (current_password, new_password) => {
+      return request('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ current_password, new_password }),
+      });
+    },
+  },
+
+  // --- SHIFTS ---
   async getActiveShift() {
-    if (isElectron) return window.electronAPI.getActiveShift();
-    const store = getBrowserStore();
-    let active = store.shifts.find((s) => s.status === 'OPEN');
-    if (!active) {
-      const sType = store.settings?.active_shift_type || 'Day';
-      const emp1 = sType === 'Night' ? store.settings?.night_employee_1 : store.settings?.day_employee_1;
-      const emp2 = sType === 'Night' ? store.settings?.night_employee_2 : store.settings?.day_employee_2;
-      active = {
-        id: store.shifts.length + 1,
-        shift_code: `SHF-${Date.now().toString().slice(-6)}`,
-        register_station: 'Register 01',
-        cashier_name: `${emp1} & ${emp2}`,
-        shift_type: sType,
-        employee_1: emp1,
-        employee_2: emp2,
-        opening_float: 0,
-        opened_at: new Date().toISOString(),
-        closed_at: null,
-        status: 'OPEN',
-      };
-      store.shifts.push(active);
-      saveBrowserStore(store);
+    try {
+      return await request('/api/shifts/active');
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getActiveShift();
+      throw err;
     }
-    return active;
   },
 
   async updateOpeningFloat(shiftId, amount) {
-    if (isElectron) return window.electronAPI.updateOpeningFloat(shiftId, amount);
-    const store = getBrowserStore();
-    const shift = store.shifts.find((s) => s.id === shiftId);
-    if (shift) {
-      shift.opening_float = Number(amount) || 0;
-      saveBrowserStore(store);
+    try {
+      return await request('/api/shifts/opening-float', {
+        method: 'POST',
+        body: JSON.stringify({ shiftId, amount }),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateOpeningFloat(shiftId, amount);
+      throw err;
     }
-    return shift;
   },
 
   async updateShiftStaff(data) {
-    if (isElectron) return window.electronAPI.updateShiftStaff(data);
-    const store = getBrowserStore();
-    const active = store.shifts.find((s) => s.status === 'OPEN');
-    if (active) {
-      if (data.shift_type) active.shift_type = data.shift_type;
-      if (data.employee_1 !== undefined) active.employee_1 = data.employee_1;
-      if (data.employee_2 !== undefined) active.employee_2 = data.employee_2;
-      active.cashier_name = `${active.employee_1} & ${active.employee_2}`;
-      store.settings.active_shift_type = active.shift_type;
-
-      if (data.save_as_default) {
-        if (active.shift_type === 'Day') {
-          store.settings.day_employee_1 = active.employee_1;
-          store.settings.day_employee_2 = active.employee_2;
-        } else {
-          store.settings.night_employee_1 = active.employee_1;
-          store.settings.night_employee_2 = active.employee_2;
-        }
-      }
-      saveBrowserStore(store);
+    try {
+      return await request('/api/shifts/staff', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateShiftStaff(data);
+      throw err;
     }
-    return active;
-  },
-
-  async getAllEmployees() {
-    if (isElectron) return window.electronAPI.getAllEmployees();
-    const store = getBrowserStore();
-    return store.employees || [];
-  },
-
-  async saveEmployee(data) {
-    if (isElectron) return window.electronAPI.saveEmployee(data);
-    const store = getBrowserStore();
-    if (!store.employees) store.employees = [];
-    if (data.id) {
-      const idx = store.employees.findIndex((e) => e.id === data.id);
-      if (idx !== -1) {
-        store.employees[idx] = { ...store.employees[idx], ...data };
-      }
-    } else {
-      const newEmp = { id: Date.now(), ...data };
-      store.employees.push(newEmp);
-    }
-    saveBrowserStore(store);
-    return data;
-  },
-
-  async deleteEmployee(id) {
-    if (isElectron) return window.electronAPI.deleteEmployee(id);
-    const store = getBrowserStore();
-    if (store.employees) {
-      store.employees = store.employees.filter((e) => e.id !== id);
-      saveBrowserStore(store);
-    }
-    return { success: true, id };
-  },
-
-  async getNextInvoiceNumber() {
-    if (isElectron) return window.electronAPI.getNextInvoiceNumber();
-    const store = getBrowserStore();
-    const year = new Date().getFullYear();
-    const num = store.nextInvoiceId || 1;
-    return `INV-${year}-${String(num).padStart(4, '0')}`;
-  },
-
-  async addLedgerEntry(data) {
-    if (isElectron) return window.electronAPI.addLedgerEntry(data);
-    const store = getBrowserStore();
-    const shift = store.shifts.find((s) => s.status === 'OPEN') || store.shifts[0];
-    const year = new Date().getFullYear();
-    const inv = data.invoice_number || `INV-${year}-${String(store.nextInvoiceId || 1).padStart(4, '0')}`;
-    store.nextInvoiceId = (store.nextInvoiceId || 1) + 1;
-
-    const newEntry = {
-      id: Date.now(),
-      shift_id: shift.id,
-      shift_type: data.shift_type || shift.shift_type || 'Day',
-      employee_1: data.employee_1 !== undefined ? data.employee_1 : (shift.employee_1 || ''),
-      employee_2: data.employee_2 !== undefined ? data.employee_2 : (shift.employee_2 || ''),
-      invoice_number: inv,
-      customer_type: data.customer_type || 'Walk-in Customer',
-      amount: parseFloat(data.amount) || 0,
-      payment_method: data.payment_method === 'QR_CODE' ? 'QR_CODE' : (data.payment_method === 'CARD' || data.payment_method === 'ONLINE') ? 'CARD' : 'CASH',
-      notes: data.notes || '',
-      created_at: new Date().toISOString(),
-    };
-
-    store.ledger_entries.unshift(newEntry);
-    saveBrowserStore(store);
-
-    const summary = await this.getShiftSummary(shift.id);
-    const nextInvoice = await this.getNextInvoiceNumber();
-
-    return {
-      entry: newEntry,
-      nextInvoice,
-      summary,
-    };
-  },
-
-  async updateLedgerEntry(id, data) {
-    if (isElectron) return window.electronAPI.updateLedgerEntry(id, data);
-    const store = getBrowserStore();
-    const entry = store.ledger_entries.find((e) => e.id === id);
-    if (entry) {
-      if (data.customer_type) entry.customer_type = data.customer_type;
-      if (data.payment_method) entry.payment_method = data.payment_method === 'QR_CODE' ? 'QR_CODE' : (data.payment_method === 'CARD' || data.payment_method === 'ONLINE') ? 'CARD' : 'CASH';
-      if (data.notes !== undefined) entry.notes = data.notes;
-      if (data.amount !== undefined) entry.amount = parseFloat(data.amount) || 0;
-      recalculateBrowserClosing(store, entry.shift_id);
-      saveBrowserStore(store);
-    }
-    return entry;
-  },
-
-  async deleteLedgerEntry(id) {
-    if (isElectron) return window.electronAPI.deleteLedgerEntry(id);
-    const store = getBrowserStore();
-    const entry = store.ledger_entries.find((e) => e.id === id);
-    store.ledger_entries = store.ledger_entries.filter((e) => e.id !== id);
-    if (entry) recalculateBrowserClosing(store, entry.shift_id);
-    saveBrowserStore(store);
-    return { success: true, deletedId: id };
-  },
-
-  async getRecentEntries(shiftId, limit = 50) {
-    if (isElectron) return window.electronAPI.getRecentEntries(shiftId, limit);
-    const store = getBrowserStore();
-    const active = store.shifts.find((s) => s.status === 'OPEN') || store.shifts[0];
-    const targetShiftId = shiftId || (active ? active.id : 1);
-    return store.ledger_entries
-      .filter((e) => e.shift_id === targetShiftId)
-      .slice(0, limit);
-  },
-
-  async getAllLedgerEntries(filters = {}) {
-    if (isElectron) return window.electronAPI.getAllLedgerEntries(filters);
-    const store = getBrowserStore();
-    let list = [...(store.ledger_entries || [])];
-
-    if (filters.shiftId !== undefined && filters.shiftId !== null) {
-      list = list.filter((entry) => entry.shift_id === Number(filters.shiftId));
-    }
-
-    if (filters.shiftType && filters.shiftType !== 'ALL') {
-      list = list.filter((e) => e.shift_type === filters.shiftType);
-    }
-    if (filters.method && filters.method !== 'ALL') {
-      list = list.filter((e) => e.payment_method === filters.method);
-    }
-    if (filters.customerType && filters.customerType !== 'ALL') {
-      list = list.filter((e) => e.customer_type === filters.customerType);
-    }
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      list = list.filter(
-        (e) =>
-          e.invoice_number?.toLowerCase().includes(s) ||
-          e.notes?.toLowerCase().includes(s) ||
-          e.customer_type?.toLowerCase().includes(s) ||
-          e.employee_1?.toLowerCase().includes(s) ||
-          e.employee_2?.toLowerCase().includes(s)
-      );
-    }
-    // Newest first
-    list.sort((a, b) => (b.id || 0) - (a.id || 0));
-    return list;
   },
 
   async getShiftSummary(shiftId) {
-    if (isElectron) return window.electronAPI.getShiftSummary(shiftId);
-    const store = getBrowserStore();
-    const targetShift = store.shifts.find((s) => (shiftId ? s.id === shiftId : s.status === 'OPEN')) || store.shifts[0];
-    const entries = store.ledger_entries.filter((e) => e.shift_id === (targetShift ? targetShift.id : 1));
-
-    let cashInflow = 0;
-    let onlineCollections = 0;
-    let cardCollections = 0;
-    let qrCollections = 0;
-    let cashCount = 0;
-    let onlineCount = 0;
-    let cardCount = 0;
-    let qrCount = 0;
-
-    for (const e of entries) {
-      if (e.payment_method === 'CASH') {
-        cashInflow += Number(e.amount) || 0;
-        cashCount++;
-      } else if (e.payment_method === 'QR_CODE') {
-        qrCollections += Number(e.amount) || 0;
-        onlineCollections += Number(e.amount) || 0;
-        qrCount++;
-        onlineCount++;
-      } else {
-        cardCollections += Number(e.amount) || 0;
-        onlineCollections += Number(e.amount) || 0;
-        cardCount++;
-        onlineCount++;
-      }
+    try {
+      const query = shiftId ? `?shiftId=${shiftId}` : '';
+      return await request(`/api/shifts/summary${query}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getShiftSummary(shiftId);
+      throw err;
     }
-
-    const totalRevenue = cashInflow + onlineCollections;
-    const totalCount = cashCount + onlineCount;
-    const openingFloat = Number(targetShift?.opening_float) || 0;
-
-    // Calculate Short Items for Mock
-    const shortItems = store.short_items || [];
-    const shiftShortItems = shortItems.filter(item => item.shift_id === targetShift.id);
-    
-    let pendingShortItemsCount = 0;
-    let totalSpentOnShortItems = 0;
-    let totalPendingAmount = 0;
-
-    for (const item of shiftShortItems) {
-      if (item.status === 'PENDING') {
-        pendingShortItemsCount++;
-        totalPendingAmount += (Number(item.amount) || 0);
-      } else if (item.status === 'RETURNED') {
-        totalSpentOnShortItems += (Number(item.spent_amount) || 0);
-      }
-    }
-
-    const expectedDrawerCash = openingFloat + cashInflow - totalSpentOnShortItems - totalPendingAmount;
-    const totalShortItemsDeduction = totalSpentOnShortItems + totalPendingAmount;
-
-    const cashShare = totalRevenue > 0 ? ((cashInflow / totalRevenue) * 100).toFixed(1) : 0;
-    const onlineShare = totalRevenue > 0 ? ((onlineCollections / totalRevenue) * 100).toFixed(1) : 0;
-
-    return {
-      shift: targetShift,
-      totalRevenue,
-      cashInflow,
-      onlineCollections,
-      cardCollections,
-      qrCollections,
-      cashCount,
-      onlineCount,
-      cardCount,
-      qrCount,
-      totalCount,
-      openingFloat,
-      expectedDrawerCash,
-      cashShare,
-      onlineShare,
-      pendingShortItemsCount,
-      totalSpentOnShortItems,
-      totalPendingShortItemsAmount: totalPendingAmount,
-      totalShortItemsDeduction
-    };
   },
 
-  async saveShiftClosing(data) {
-    if (isElectron) return window.electronAPI.saveShiftClosing(data);
-    const store = getBrowserStore();
-    const closingId = 1001 + store.shift_closings.length;
-    const closingCode = `CLS-${closingId}`;
-
-    const newClosing = {
-      id: closingId,
-      closing_code: closingCode,
-      shift_id: data.shift_id,
-      shift_type: data.shift_type || 'Day',
-      employee_1: data.employee_1 || '',
-      employee_2: data.employee_2 || '',
-      cashier_name: data.cashier_name || `${data.employee_1} & ${data.employee_2}`,
-      opening_float: Number(data.opening_float) || 0,
-      cash_sales: Number(data.cash_sales) || 0,
-      online_sales: Number(data.online_sales) || 0,
-      total_revenue: Number(data.total_revenue) || 0,
-      expected_drawer_cash: Number(data.expected_drawer_cash) || 0,
-      counted_cash: Number(data.counted_cash) || 0,
-      variance: Number(data.variance) || 0,
-      status: data.status || 'Balanced',
-      denominations_json: typeof data.denominations_json === 'string' ? data.denominations_json : JSON.stringify(data.denominations_json || {}),
-      audit_notes: data.audit_notes || '',
-      closed_at: new Date().toISOString(),
-    };
-
-    store.shift_closings.unshift(newClosing);
-
-    // Close active shift and start new one
-    const activeShift = store.shifts.find((s) => s.id === data.shift_id);
-    if (activeShift) {
-      activeShift.status = 'CLOSED';
-      activeShift.closed_at = new Date().toISOString();
+  // --- LEDGER ENTRIES ---
+  async getNextInvoiceNumber() {
+    try {
+      const res = await request('/api/ledger/next-invoice');
+      return res.invoice_number;
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getNextInvoiceNumber();
+      return `INV-${new Date().getFullYear()}-0001`;
     }
+  },
 
-    // Maintain current shift type (shifts will only be switched manually)
-    const nextType = data.next_shift_type || data.shift_type || store.settings.active_shift_type || 'Day';
-    const nextEmp1 = data.next_employee_1 || (nextType === 'Night' ? store.settings.night_employee_1 : store.settings.day_employee_1);
-    const nextEmp2 = data.next_employee_2 || (nextType === 'Night' ? store.settings.night_employee_2 : store.settings.day_employee_2);
+  async addLedgerEntry(data) {
+    try {
+      return await request('/api/ledger/entry', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.addLedgerEntry(data);
+      throw err;
+    }
+  },
 
-    const newShift = {
-      id: store.shifts.length + 1,
-      shift_code: `SHF-${Date.now().toString().slice(-6)}`,
-      register_station: 'Register 01',
-      shift_type: nextType,
-      employee_1: nextEmp1,
-      employee_2: nextEmp2,
-      cashier_name: `${nextEmp1} & ${nextEmp2}`,
-      opening_float: data.carryOverFloatAsNewShift ? Number(data.counted_cash) : 0.0,
-      opened_at: new Date().toISOString(),
-      closed_at: null,
-      status: 'OPEN',
-    };
-    store.shifts.push(newShift);
-    store.settings.active_shift_type = nextType;
-    saveBrowserStore(store);
+  async updateLedgerEntry(id, data) {
+    try {
+      return await request(`/api/ledger/entry/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateLedgerEntry(id, data);
+      throw err;
+    }
+  },
 
-    return {
-      closing: newClosing,
-      newShift,
-    };
+  async deleteLedgerEntry(id) {
+    try {
+      return await request(`/api/ledger/entry/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.deleteLedgerEntry(id);
+      throw err;
+    }
+  },
+
+  async getRecentEntries(shiftId, limit = 50) {
+    try {
+      const query = `?limit=${limit}${shiftId ? `&shiftId=${shiftId}` : ''}`;
+      return await request(`/api/ledger/recent${query}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getRecentEntries(shiftId, limit);
+      return [];
+    }
+  },
+
+  async getAllLedgerEntries(filters = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (filters.shiftId) params.append('shiftId', filters.shiftId);
+      if (filters.shiftType) params.append('shiftType', filters.shiftType);
+      if (filters.method) params.append('method', filters.method);
+      if (filters.customerType) params.append('customerType', filters.customerType);
+      if (filters.search) params.append('search', filters.search);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      return await request(`/api/ledger/all${query}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getAllLedgerEntries(filters);
+      return [];
+    }
+  },
+
+  // --- SHIFT CLOSINGS ---
+  async saveShiftClosing(data) {
+    try {
+      return await request('/api/closings', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.saveShiftClosing(data);
+      throw err;
+    }
   },
 
   async getAllClosings(filters = {}) {
-    if (isElectron) return window.electronAPI.getAllClosings(filters);
-    const store = getBrowserStore();
-    let list = store.shift_closings || [];
-    if (filters?.shiftType && filters.shiftType !== 'ALL') {
-      list = list.filter((c) => c.shift_type === filters.shiftType);
+    try {
+      const query = filters?.shiftType ? `?shiftType=${filters.shiftType}` : '';
+      return await request(`/api/closings${query}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getAllClosings(filters);
+      return [];
     }
-    return list;
   },
 
   async getClosingById(id) {
-    if (isElectron) return window.electronAPI.getClosingById(id);
-    const store = getBrowserStore();
-    return store.shift_closings.find((c) => c.id === id || c.closing_code === id);
+    try {
+      return await request(`/api/closings/${id}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getClosingById(id);
+      return null;
+    }
   },
 
   async updateShiftClosing(id, data) {
-    if (isElectron) return window.electronAPI.updateShiftClosing(id, data);
-    const store = getBrowserStore();
-    const closing = store.shift_closings.find((c) => c.id === id);
-    if (!closing) throw new Error('Closing not found');
-    if (closing.is_void) throw new Error('A void closing cannot be edited');
-    const countedCash = Number(data.counted_cash);
-    if (!Number.isFinite(countedCash) || countedCash < 0) throw new Error('Invalid counted cash');
-    closing.employee_1 = String(data.employee_1 || '').trim();
-    closing.employee_2 = String(data.employee_2 || '').trim();
-    closing.cashier_name = `${closing.employee_1} & ${closing.employee_2}`;
-    closing.counted_cash = countedCash;
-    closing.denominations_json = typeof data.denominations_json === 'string' ? data.denominations_json : JSON.stringify(data.denominations_json || {});
-    closing.audit_notes = String(data.audit_notes || '').trim();
-    recalculateBrowserClosing(store, closing.shift_id);
-    saveBrowserStore(store);
-    return closing;
+    try {
+      return await request(`/api/closings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateShiftClosing(id, data);
+      throw err;
+    }
   },
 
   async voidShiftClosing(id, reason) {
-    if (isElectron) return window.electronAPI.voidShiftClosing(id, reason);
-    const store = getBrowserStore();
-    const closing = store.shift_closings.find((c) => c.id === id);
-    if (!closing) throw new Error('Closing not found');
-    const cleanReason = String(reason || '').trim();
-    if (!cleanReason) throw new Error('Void reason is required');
-    closing.is_void = 1;
-    closing.status = 'VOID';
-    closing.void_reason = cleanReason;
-    closing.voided_at = new Date().toISOString();
-    closing.updated_at = closing.voided_at;
-    saveBrowserStore(store);
-    return closing;
+    try {
+      return await request(`/api/closings/${id}/void`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.voidShiftClosing(id, reason);
+      throw err;
+    }
   },
 
+  // --- SHORT ITEMS ---
+  async getShortItems(shiftId) {
+    try {
+      const query = shiftId ? `?shiftId=${shiftId}` : '';
+      return await request(`/api/short-items${query}`);
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getShortItems(shiftId);
+      return [];
+    }
+  },
+
+  async addShortItem(data) {
+    try {
+      return await request('/api/short-items', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.addShortItem(data);
+      throw err;
+    }
+  },
+
+  async updateShortItem(id, data) {
+    try {
+      return await request(`/api/short-items/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateShortItem(id, data);
+      throw err;
+    }
+  },
+
+  async returnShortItem(id, data) {
+    try {
+      return await request(`/api/short-items/${id}/return`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.returnShortItem(id, data);
+      throw err;
+    }
+  },
+
+  async deleteShortItem(id) {
+    try {
+      return await request(`/api/short-items/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.deleteShortItem(id);
+      throw err;
+    }
+  },
+
+  // --- EMPLOYEES ---
+  async getAllEmployees() {
+    try {
+      return await request('/api/employees');
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getAllEmployees();
+      return [];
+    }
+  },
+
+  async saveEmployee(data) {
+    try {
+      return await request('/api/employees', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.saveEmployee(data);
+      throw err;
+    }
+  },
+
+  async deleteEmployee(id) {
+    try {
+      return await request(`/api/employees/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.deleteEmployee(id);
+      throw err;
+    }
+  },
+
+  // --- SETTINGS & PRINT ---
   async getSettings() {
-    if (isElectron) return window.electronAPI.getSettings();
-    const store = getBrowserStore();
-    return store.settings;
+    try {
+      return await request('/api/settings');
+    } catch (err) {
+      if (isElectron) return window.electronAPI.getSettings();
+      return {};
+    }
   },
 
   async updateSettings(settings) {
-    if (isElectron) return window.electronAPI.updateSettings(settings);
-    const store = getBrowserStore();
-    store.settings = { ...store.settings, ...settings };
-    saveBrowserStore(store);
-    return store.settings;
+    try {
+      return await request('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify(settings),
+      });
+    } catch (err) {
+      if (isElectron) return window.electronAPI.updateSettings(settings);
+      throw err;
+    }
   },
 
   async printSlip() {
-    // Use native window.print() which triggers the OS print dialog reliably in Electron
     setTimeout(() => window.print(), 100);
     return { success: true };
   },
@@ -535,111 +402,11 @@ export const api = {
 
   async restoreBackup(filename) {
     if (isElectron) return window.electronAPI.restoreBackup(filename);
-    return { success: false, error: 'Restore not supported in web browser mock mode' };
+    return { success: false, error: 'Database restore is managed via Hostinger MySQL' };
   },
 
-  async addShortItem(data) {
-    if (isElectron) return window.electronAPI.addShortItem(data);
-    const store = getBrowserStore();
-    const active = store.shifts.find((s) => s.status === 'OPEN') || store.shifts[0];
-    
-    if (!store.short_items) store.short_items = [];
-    
-    const newItem = {
-      id: Date.now(),
-      shift_id: active.id,
-      amount: parseFloat(data.amount) || 0,
-      given_to: data.given_to || '',
-      notes: data.notes || '',
-      status: 'PENDING',
-      returned_amount: 0,
-      spent_amount: 0,
-      bill_amount: 0,
-      reference_no: '',
-      pharmacy: '',
-      created_at: new Date().toISOString()
-    };
-    
-    store.short_items.unshift(newItem);
-    saveBrowserStore(store);
-    return newItem;
+  async getSyncStatus() {
+    if (isElectron) return window.electronAPI.getSyncStatus();
+    return { enabled: true, serverOnline: true, connected: true };
   },
-
-  async updateShortItem(id, data) {
-    if (isElectron) return window.electronAPI.updateShortItem(id, data);
-    const store = getBrowserStore();
-    const item = (store.short_items || []).find(i => i.id === id);
-    if (!item) throw new Error('Short item not found');
-
-    const amount = parseFloat(data.amount);
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid amount');
-    const billAmount = Number(item.bill_amount || item.spent_amount) || 0;
-    if (item.status === 'RETURNED' && amount < billAmount) {
-      throw new Error('Issued amount cannot be less than bill amount');
-    }
-
-    item.amount = amount;
-    item.given_to = String(data.given_to || '').trim();
-    item.notes = String(data.notes || '').trim();
-    item.spent_amount = item.status === 'RETURNED' ? billAmount : 0;
-    item.returned_amount = item.status === 'RETURNED' ? amount - billAmount : 0;
-    recalculateBrowserClosing(store, item.shift_id);
-    saveBrowserStore(store);
-    return item;
-  },
-
-  async deleteShortItem(id) {
-    if (isElectron) return window.electronAPI.deleteShortItem(id);
-    const store = getBrowserStore();
-    const index = (store.short_items || []).findIndex(i => i.id === id);
-    if (index === -1) throw new Error('Short item not found');
-    const [deleted] = store.short_items.splice(index, 1);
-    recalculateBrowserClosing(store, deleted.shift_id);
-    saveBrowserStore(store);
-    return { success: true };
-  },
-
-  async returnShortItem(id, data) {
-    if (isElectron) return window.electronAPI.returnShortItem(id, data);
-    const store = getBrowserStore();
-    if (!store.short_items) return null;
-    
-    const item = store.short_items.find(i => i.id === id);
-    if (!item) return null;
-    
-    const billAmount = Number(data.bill_amount);
-    if (!Number.isFinite(billAmount) || billAmount < 0) throw new Error('Invalid bill amount');
-    if (billAmount > Number(item.amount)) throw new Error('Bill amount cannot exceed given amount');
-    const referenceNo = String(data.reference_no || '').trim();
-    const pharmacy = String(data.pharmacy || '').trim();
-    if (!referenceNo) throw new Error('Reference number is required');
-    if (!pharmacy) throw new Error('Pharmacy name is required');
-    const returnedAmount = Number(item.amount) - billAmount;
-    item.status = 'RETURNED';
-    item.returned_amount = returnedAmount;
-    item.spent_amount = billAmount;
-    item.bill_amount = billAmount;
-    item.reference_no = referenceNo;
-    item.pharmacy = pharmacy;
-    item.returned_at = new Date().toISOString();
-    recalculateBrowserClosing(store, item.shift_id);
-    
-    saveBrowserStore(store);
-    return item;
-  },
-
-  async getShortItems(shiftId) {
-    if (isElectron) return window.electronAPI.getShortItems(shiftId);
-    const store = getBrowserStore();
-    if (!store.short_items) return [];
-    
-    if (shiftId === 'ALL') {
-      return [...store.short_items].sort((a, b) => b.id - a.id);
-    }
-
-    const active = store.shifts.find((s) => s.status === 'OPEN') || store.shifts[0];
-    const targetShiftId = shiftId || (active ? active.id : 1);
-    
-    return store.short_items.filter(i => i.shift_id === targetShiftId).sort((a, b) => b.id - a.id);
-  }
 };

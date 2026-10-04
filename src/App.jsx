@@ -13,10 +13,16 @@ import ClosingDetailsView from './views/ClosingDetailsView';
 import SlipModal from './components/SlipModal';
 import ShiftStaffModal from './components/ShiftStaffModal';
 import ConfirmationModal from './components/ConfirmationModal';
+import LoginView from './components/LoginView';
+import UsersModal from './components/UsersModal';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function App() {
   const {
+    currentUser,
+    setCurrentUser,
+    isUsersModalOpen,
+    setIsUsersModalOpen,
     currentView,
     selectedClosingForSlip,
     isSlipModalOpen,
@@ -27,6 +33,10 @@ export default function App() {
     confirmationDialog,
     respondToConfirmation,
   } = useApp();
+
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={setCurrentUser} />;
+  }
 
   const titles = {
     ledger: 'Ledger Entry',
@@ -76,6 +86,12 @@ export default function App() {
       <ShiftStaffModal
         isOpen={isStaffModalOpen}
         onClose={() => setIsStaffModalOpen(false)}
+      />
+
+      <UsersModal
+        isOpen={isUsersModalOpen}
+        onClose={() => setIsUsersModalOpen(false)}
+        currentUser={currentUser}
       />
 
       <ConfirmationModal dialog={confirmationDialog} onRespond={respondToConfirmation} />
