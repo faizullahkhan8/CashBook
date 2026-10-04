@@ -172,12 +172,22 @@ export default function AllLedgersView({ onSwitchToEntry }) {
         </div>
       </div>
 
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* 5 Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-slate-400 shadow-sm">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recorded Transactions</span>
           <div className="text-2xl lg:text-3xl font-black text-slate-800 font-mono my-2">{totalEntries}</div>
           <span className="text-xs font-semibold text-slate-400">Filtered receipts</span>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 rounded-2xl border border-emerald-700 shadow-lg shadow-emerald-900/20">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Net Sale</span>
+            <Banknote className="w-4 h-4 text-emerald-200" />
+          </div>
+          <div className="text-2xl lg:text-3xl font-black text-white font-mono my-2 whitespace-nowrap">
+            {settings.currency} {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <span className="text-xs font-bold text-emerald-200">Cash + Card + QR total</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
           <div className="flex items-center justify-between">

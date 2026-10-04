@@ -14,11 +14,17 @@ export function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
+  const [notSyncedYet, setNotSyncedYet] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setError('');
-      setSnapshot((await api.dashboard()) || { summary: emptySummary });
+      setNotSyncedYet(false);
+      const data = (await api.dashboard()) || { summary: emptySummary };
+      // Server returns empty metrics when desktop has never synced
+      const isEmpty = !data.sourceUpdatedAt && (!data.metrics || Object.keys(data.metrics).length === 0);
+      setNotSyncedYet(isEmpty);
+      setSnapshot(data);
     } catch (loadError) {
       setError(loadError.message);
     }
@@ -43,7 +49,8 @@ export function DashboardScreen() {
         <View style={[styles.liveBadge, !connected && styles.offlineBadge]}><View style={[styles.dot, !connected && styles.offlineDot]} /><Text style={styles.liveText}>{connected ? 'LIVE' : 'SYNCING'}</Text></View>
       </View>
       <Text style={styles.subtitle}>{staffName(snapshot)} · Updated {formatTime(snapshot.sourceUpdatedAt || snapshot.updatedAt)}</Text>
-      {error ? <Text style={styles.error}>Server unavailable: {error}</Text> : null}
+      {error ? <Text style={styles.error}>⚠️ Server unavailable: {error}</Text> : null}
+      {!error && notSyncedYet ? <Text style={styles.infoBox}>ℹ️ Desktop ne abhi tak sync nahi kiya — counter system on karo pehli baar data aane ke liye.</Text> : null}
       <View style={styles.grid}>
         <StatCard label="Opening Cash" value={summary.openingCash} color="#a78bfa" />
         <StatCard label="Cash Collection" value={summary.totalCash} color="#34d399" />
@@ -81,6 +88,7 @@ const styles = StyleSheet.create({
   liveText: { color: '#f8fafc', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   error: { color: '#fecaca', backgroundColor: '#451a1a', padding: 12, borderRadius: 12, marginBottom: 14 },
+  infoBox: { color: '#fef3c7', backgroundColor: '#3b2a05', padding: 12, borderRadius: 12, marginBottom: 14 },
   note: { marginTop: 8, padding: 16, borderRadius: 16, backgroundColor: '#0d1729', borderWidth: 1, borderColor: '#1e293b' },
   noteTitle: { color: '#e2e8f0', fontWeight: '800' }, noteText: { color: '#64748b', marginTop: 5, lineHeight: 19 },
 });

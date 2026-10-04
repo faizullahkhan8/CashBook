@@ -9,7 +9,15 @@ router.get('/', async (req, res, next) => {
       pharmacyId: String(req.query.pharmacyId || env.defaultPharmacyId),
       branchId: String(req.query.branchId || env.defaultBranchId),
     };
-    res.json({ data: await getDashboardSnapshot(scope) });
+    const snapshot = await getDashboardSnapshot(scope);
+    res.json({
+      data: snapshot ?? {
+        pharmacyId: scope.pharmacyId,
+        branchId: scope.branchId,
+        metrics: {},
+        sourceUpdatedAt: null,
+      },
+    });
   } catch (error) { next(error); }
 });
 export default router;

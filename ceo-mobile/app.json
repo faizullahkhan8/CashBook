@@ -6,13 +6,23 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "android": {
-      "package": "com.zadapharmacy.ceo"
+      "package": "com.zadapharmacy.ceo",
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "permissions": []
     },
     "ios": {
       "bundleIdentifier": "com.zadapharmacy.ceo"
     },
     "plugins": [
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ff91dd58-b924-4321-87f8-4652cbacc92a"
+      }
+    },
+    "owner": "faizullahkhan"
   }
 }

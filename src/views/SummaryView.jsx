@@ -21,6 +21,7 @@ export default function SummaryView() {
   const onlineShareNum = parseFloat(summary.onlineShare) || 0;
   const shortItemsDeduction = summary.totalShortItemsDeduction
     ?? ((summary.totalSpentOnShortItems || 0) + (summary.totalPendingShortItemsAmount || 0));
+  const netSale = (summary.cashInflow || 0) + (summary.onlineCollections || 0);
   const netCash = (summary.openingFloat || 0) + summary.cashInflow - shortItemsDeduction;
   const grandTotal = netCash + summary.onlineCollections;
 
@@ -73,7 +74,8 @@ export default function SummaryView() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 2xl:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 2xl:gap-6">
+
         {/* Total Shift Revenue */}
         <div className="bg-white p-5 2xl:p-6 rounded-2xl border-y border-r border-slate-200 border-l-4 border-l-slate-800 shadow-sm flex flex-col justify-between">
           <div>
@@ -222,6 +224,29 @@ export default function SummaryView() {
           </div>
           <div className="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500 font-semibold">
             Opening + Cash − Short Items
+          </div>
+        </div>
+
+        {/* Net Sale */}
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 2xl:p-6 rounded-2xl shadow-lg shadow-emerald-900/20 flex flex-col justify-between border border-emerald-700">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                Net Sale
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-baseline space-x-1.5 font-mono min-w-0">
+              <span className="text-sm font-bold text-emerald-200 shrink-0">{settings.currency}</span>
+              <span className="text-2xl 2xl:text-3xl font-black text-white tracking-tight whitespace-nowrap">
+                {netSale.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-white/20 text-sm text-emerald-100 font-bold">
+            Cash + Card + QR ({summary.totalCount || 0} txns)
           </div>
         </div>
       </div>

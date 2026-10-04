@@ -71,6 +71,7 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
   // Pending items deduct the full cash issued; settled items deduct the actual bill amount.
   const shortItemsDeduction = summary.totalShortItemsDeduction
     ?? ((summary.totalSpentOnShortItems || 0) + (summary.totalPendingShortItemsAmount || 0));
+  const netSale = (summary.cashInflow || 0) + (summary.onlineCollections || 0);
   const expectedDrawerCash = currentFloat + summary.cashInflow - shortItemsDeduction;
   const grandTotal = expectedDrawerCash + summary.onlineCollections;
   const variance = countedCash - expectedDrawerCash;
@@ -309,8 +310,17 @@ export default function ShiftClosingReconciliation({ onSwitchToArchive }) {
           <p className="text-xs font-bold text-teal-600 mt-1">Opening + Cash − Short Items</p>
         </div>
 
+        {/* Net Sale */}
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 rounded-2xl border border-emerald-700 shadow-lg shadow-emerald-900/20">
+          <div className="text-sm font-bold text-emerald-200 uppercase tracking-wider">8. NET SALE</div>
+          <div className="mt-3 text-2xl lg:text-3xl font-black text-white font-mono whitespace-nowrap">
+            {settings.currency} {netSale.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+          <p className="text-xs font-bold text-emerald-200 mt-1">Cash + Card + QR ({summary.totalCount || 0} transactions)</p>
+        </div>
+
         <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 border-l-4 border-l-blue-400 shadow-sm">
-          <div className="text-sm font-bold text-blue-200 uppercase tracking-wider">8. GRAND TOTAL</div>
+          <div className="text-sm font-bold text-blue-200 uppercase tracking-wider">9. GRAND TOTAL</div>
           <div className="mt-3 text-2xl lg:text-3xl font-black text-white font-mono whitespace-nowrap">
             {settings.currency} {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>

@@ -1,14 +1,119 @@
 import React,{useEffect,useMemo,useState}from'react';
+import Sidebar from './components/Sidebar';
+import SummaryView from './views/SummaryView';
+import AddBillView from './views/AddBillView';
+import AllBillsView from './views/AllBillsView';
+
 const today=()=>new Date().toISOString().slice(0,10);const money=v=>Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2});
-const blank=()=>({posting_date:today(),bill_date:today(),supplier_name:'',supplier_bill_no:'',voucher_no:'',total_bill_amount:'',tax_percent:'0',category:'PAYABLE',remarks:''});
-export default function App(){const[items,setItems]=useState([]),[form,setForm]=useState(blank()),[paying,setPaying]=useState(null),[confirming,setConfirming]=useState(null),[payment,setPayment]=useState({payment_date:today(),amount:'',payment_mode:'CHEQUE',reference_no:'',remarks:''}),[from,setFrom]=useState(`${today().slice(0,8)}01`),[to,setTo]=useState(today()),[search,setSearch]=useState('');
-const load=async()=>setItems(await window.supplierAPI.list({from,to}));useEffect(()=>{load()},[from,to]);const totals=useMemo(()=>items.reduce((s,b)=>({gross:s.gross+b.total_bill_amount,tax:s.tax+b.tax_amount,actual:s.actual+(b.category==='PAYABLE'?b.actual_amount:0),paid:s.paid+b.paid_amount,balance:s.balance+b.remaining_balance}),{gross:0,tax:0,actual:0,paid:0,balance:0}),[items]);const visible=items.filter(x=>`${x.supplier_name} ${x.supplier_bill_no} ${x.voucher_no}`.toLowerCase().includes(search.toLowerCase()));
-async function save(e){e.preventDefault();await window.supplierAPI.saveBill(form);setForm(blank());load()}async function pay(e){e.preventDefault();await window.supplierAPI.addPayment({...payment,bill_sync_id:paying.sync_id});setPaying(null);setPayment({payment_date:today(),amount:'',payment_mode:'CHEQUE',reference_no:'',remarks:''});load()}
-function Field({l,k,...p}){return <label>{l}<input {...p} value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}/></label>}
-return <div className="app"><header><div><small>ZADA PHARMACY</small><h1>Supplier Reconciliation</h1><p>Bills, payments and outstanding balances</p></div><div className="live">● LIVE SYNC</div></header><section className="stats"><Card t="Gross Bills" v={totals.gross}/><Card t="Tax Deduction" v={totals.tax}/><Card t="Actual Payable" v={totals.actual}/><Card t="Total Paid" v={totals.paid}/><Card t="Outstanding" v={totals.balance} hot/></section>
-<main><form className="panel form" onSubmit={save}><h2>{form.sync_id?'Edit':'New'} Supplier Bill</h2><div className="grid"><Field l="Posting Date" type="date" k="posting_date"/><Field l="Bill Date" type="date" k="bill_date"/><Field l="Supplier / Distributor" k="supplier_name" required/><Field l="Supplier Bill No." k="supplier_bill_no"/><Field l="Abuzar Voucher No." k="voucher_no"/><Field l="Total Bill Amount" type="number" k="total_bill_amount" required/><Field l="Tax %" type="number" step="0.01" k="tax_percent"/><label>Category<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}><option value="PAYABLE">Payable</option><option value="BILL_TO_BILL">Bill to Bill</option><option value="SALE_BASED">Sale Based</option><option value="DISPUTED">Disputed</option></select></label></div><div className="calc">Actual amount: <b>Rs {money(Number(form.total_bill_amount||0)*(1-Number(form.tax_percent||0)/100))}</b></div><textarea placeholder="Discrepancy / remarks" value={form.remarks} onChange={e=>setForm({...form,remarks:e.target.value})}/><button className="primary">Save Bill</button>{form.sync_id&&<button type="button" onClick={()=>setForm(blank())}>Cancel</button>}
-</form>
-<section className="panel list"><div className="toolbar"><div><h2>Bills & Payments</h2><span>{visible.length} records</span></div><input placeholder="Search supplier, bill or voucher" value={search} onChange={e=>setSearch(e.target.value)}/><input type="date" value={from} onChange={e=>setFrom(e.target.value)}/><input type="date" value={to} onChange={e=>setTo(e.target.value)}/></div><div className="tableWrap"><table><thead><tr><th>Posting</th><th>Supplier</th><th>Bill / Voucher</th><th>Gross</th><th>Tax</th><th>Actual</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visible.map(b=><React.Fragment key={b.sync_id}><tr><td>{b.posting_date}<small>{b.bill_date}</small></td><td><b>{b.supplier_name}</b><small>{b.remarks}</small></td><td>{b.supplier_bill_no}<small>V: {b.voucher_no}</small></td><td>Rs {money(b.total_bill_amount)}</td><td>{b.tax_percent}%<small>Rs {money(b.tax_amount)}</small></td><td>Rs {money(b.actual_amount)}</td><td>Rs {money(b.paid_amount)}</td><td className="balance">Rs {money(b.remaining_balance)}</td><td><span className={`badge ${b.payment_status}`}>{b.payment_status}</span></td><td><button onClick={()=>{setForm({...b});scrollTo(0,0)}}>Edit</button><button onClick={()=>setPaying(b)}>Pay</button><button className="danger" onClick={()=>setConfirming({kind:'bill',id:b.sync_id,label:`bill ${b.supplier_bill_no}`})}>Delete</button></td></tr>{b.payments.map(p=><tr className="payment" key={p.sync_id}><td>{p.payment_date}</td><td colSpan="2">↳ {p.payment_mode} · {p.reference_no||'No reference'}</td><td colSpan="3">{p.remarks}</td><td>Rs {money(p.amount)}</td><td></td><td>PAYMENT</td><td><button className="danger" onClick={()=>setConfirming({kind:'payment',id:p.sync_id,label:'this payment'})}>Delete</button></td></tr>)}</React.Fragment>)}</tbody></table></div></section></main>
-{paying&&<div className="overlay"><form className="modal" onSubmit={pay}><h2>Record Payment</h2><p>{paying.supplier_name} · Balance Rs {money(paying.remaining_balance)}</p><label>Payment Date<input type="date" value={payment.payment_date} onChange={e=>setPayment({...payment,payment_date:e.target.value})}/></label><label>Amount<input type="number" max={paying.remaining_balance} required value={payment.amount} onChange={e=>setPayment({...payment,amount:e.target.value})}/></label><label>Mode<select value={payment.payment_mode} onChange={e=>setPayment({...payment,payment_mode:e.target.value})}><option>CHEQUE</option><option>ONLINE_TRANSFER</option><option>COUNTER_CASH</option><option>CASH_FROM_AFTAB</option><option>OTHER</option></select></label><label>Reference / Cheque No.<input value={payment.reference_no} onChange={e=>setPayment({...payment,reference_no:e.target.value})}/></label><label>Remarks<textarea value={payment.remarks} onChange={e=>setPayment({...payment,remarks:e.target.value})}/></label><button className="primary">Save Payment</button><button type="button" onClick={()=>setPaying(null)}>Cancel</button></form></div>}
-{confirming&&<div className="overlay"><div className="modal"><h2>Confirm deletion</h2><p>Are you sure you want to delete {confirming.label}? This change will also sync to the CEO server.</p><button className="danger" onClick={async()=>{confirming.kind==='bill'?await window.supplierAPI.deleteBill(confirming.id):await window.supplierAPI.deletePayment(confirming.id);setConfirming(null);load()}}>Yes, delete</button><button onClick={()=>setConfirming(null)}>Cancel</button></div></div>}</div>}
-function Card({t,v,hot}){return <div className={`card ${hot?'hot':''}`}><span>{t}</span><b>Rs {money(v)}</b></div>}
+const blank = () => ({
+  posting_date: today(),
+  bill_date: today(),
+  supplier_name: '',
+  supplier_bill_no: '',
+  voucher_no: '',
+  total_bill_amount: '',
+  tax_percent: '0',
+  category: 'PAYABLE',
+  remarks: '',
+  record_payment: false,
+  payment_date: today(),
+  payment_amount: '',
+  payment_mode: 'COUNTER_CASH',
+  payment_reference_no: '',
+  payment_remarks: '',
+});
+const tabs = [{ id: 'summary', label: 'Summary' }, { id: 'bills', label: 'Add Bill(s)' }, { id: 'all', label: 'All Bills' }];
+
+export default function App() {
+  const [items, setItems] = useState([]),
+    [form, setForm] = useState(blank()),
+    [paying, setPaying] = useState(null),
+    [confirming, setConfirming] = useState(null),
+    [payment, setPayment] = useState({ payment_date: today(), amount: '', payment_mode: 'CHEQUE', reference_no: '', remarks: '' }),
+    [from, setFrom] = useState(`${today().slice(0, 8)}01`),
+    [to, setTo] = useState(today()),
+    [search, setSearch] = useState(''),
+    [activeTab, setActiveTab] = useState('summary');
+
+  const load = async () => setItems(await window.supplierAPI.list({ from, to }));
+  useEffect(() => { load(); }, [from, to]);
+
+  const totals = useMemo(() => items.reduce((s, b) => ({
+    gross: s.gross + b.total_bill_amount,
+    tax: s.tax + b.tax_amount,
+    actual: s.actual + (b.category === 'PAYABLE' ? b.actual_amount : 0),
+    paid: s.paid + b.paid_amount,
+    balance: s.balance + b.remaining_balance,
+  }), { gross: 0, tax: 0, actual: 0, paid: 0, balance: 0 }), [items]);
+
+  const visible = items.filter((x) => `${x.supplier_name} ${x.supplier_bill_no} ${x.voucher_no}`.toLowerCase().includes(search.toLowerCase()));
+  const suppliers = useMemo(() => Array.from(new Set(items.map((x) => x.supplier_name).filter(Boolean))).sort(), [items]);
+
+  async function save(e) {
+    e.preventDefault();
+    const saved = await window.supplierAPI.saveBill(form);
+
+    // If immediate payment was checked and has an amount, record payment transaction
+    if (form.record_payment && Number(form.payment_amount) > 0 && saved?.sync_id) {
+      await window.supplierAPI.addPayment({
+        bill_sync_id: saved.sync_id,
+        payment_date: form.payment_date || form.posting_date || today(),
+        amount: Number(form.payment_amount),
+        payment_mode: form.payment_mode || 'COUNTER_CASH',
+        reference_no: form.payment_reference_no || '',
+        remarks: form.payment_remarks || (form.remarks ? `Paid with bill: ${form.remarks}` : 'Payment recorded on bill entry'),
+      });
+    }
+
+    setForm(blank());
+    setActiveTab('all');
+    load();
+  }
+
+  async function pay(e) {
+    e.preventDefault();
+    await window.supplierAPI.addPayment({ ...payment, bill_sync_id: paying.sync_id });
+    setPaying(null);
+    setPayment({ payment_date: today(), amount: '', payment_mode: 'CHEQUE', reference_no: '', remarks: '' });
+    load();
+  }
+
+  function onEditBill(b) {
+    setForm({
+      ...blank(),
+      ...b,
+      record_payment: false,
+      payment_amount: '',
+      payment_reference_no: '',
+      payment_remarks: '',
+    });
+    setActiveTab('bills');
+    scrollTo(0, 0);
+  }
+
+  function onDeleteBill(record, kind = 'bill') {
+    setConfirming({ kind, id: record.sync_id, label: kind === 'payment' ? 'this payment' : `bill ${record.supplier_bill_no}` });
+  }
+
+  function renderTab() {
+    switch (activeTab) {
+      case 'bills':
+        return (
+          <AddBillView
+            form={form}
+            setForm={setForm}
+            suppliers={suppliers}
+            onSave={save}
+            onCancel={() => setForm(blank())}
+          />
+        );
+      case 'all':
+        return <AllBillsView visible={visible} search={search} setSearch={setSearch} from={from} setFrom={setFrom} to={to} setTo={setTo} onEdit={onEditBill} onPay={setPaying} onDelete={onDeleteBill} />;
+      default:
+        return <SummaryView totals={totals} items={items} />;
+    }
+  }
+
+ return <div className="app-shell"><Sidebar tabs={tabs} activeTab={activeTab} onChange={setActiveTab}/><div className="content-shell"><header><div><small>ZADA PHARMACY</small><h1>Supplier Reconciliation</h1><p>Bills, payments and outstanding balances</p></div><div className="live">● LIVE SYNC</div></header>{renderTab()}</div>
+ {paying&&<div className="overlay"><form className="modal" onSubmit={pay}><h2>Record Payment</h2><p>{paying.supplier_name} · Balance Rs {money(paying.remaining_balance)}</p><label>Payment Date<input type="date" value={payment.payment_date} onChange={e=>setPayment(prev=>({...prev,payment_date:e.target.value}))}/></label><label>Amount<input type="number" max={paying.remaining_balance} required value={payment.amount} onChange={e=>setPayment(prev=>({...prev,amount:e.target.value}))}/></label><label>Mode<select value={payment.payment_mode} onChange={e=>setPayment(prev=>({...prev,payment_mode:e.target.value}))}><option>CHEQUE</option><option>ONLINE_TRANSFER</option><option>COUNTER_CASH</option><option>CASH_FROM_AFTAB</option><option>OTHER</option></select></label><label>Reference / Cheque No.<input value={payment.reference_no} onChange={e=>setPayment(prev=>({...prev,reference_no:e.target.value}))}/></label><label>Remarks<textarea value={payment.remarks} onChange={e=>setPayment(prev=>({...prev,remarks:e.target.value}))}/></label><button className="primary">Save Payment</button><button type="button" onClick={()=>setPaying(null)}>Cancel</button></form></div>}
+ {confirming&&<div className="overlay"><div className="modal"><h2>Confirm deletion</h2><p>Are you sure you want to delete {confirming.label}? This change will also sync to the CEO server.</p><button className="danger" onClick={async()=>{confirming.kind==='bill'?await window.supplierAPI.deleteBill(confirming.id):await window.supplierAPI.deletePayment(confirming.id);setConfirming(null);load()}}>Yes, delete</button><button onClick={()=>setConfirming(null)}>Cancel</button></div></div>}</div>}
