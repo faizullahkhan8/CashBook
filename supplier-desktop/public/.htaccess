@@ -1,0 +1,18 @@
+# ====================================================================
+# Zada Pharmacy SPMS - Hostinger Apache / LiteSpeed Configuration
+# ====================================================================
+
+RewriteEngine On
+RewriteBase /
+
+# Pass Authorization Header to PHP (Crucial for JWT tokens on Hostinger)
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+
+# Route all /api/* requests to the PHP REST API handler
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# For all other routes, serve the file if it exists, otherwise send to React index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
